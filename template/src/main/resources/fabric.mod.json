@@ -1,0 +1,17 @@
+{
+	"schemaVersion": 1,
+	"id": "mymod",
+	"version": "0.1.0",
+	"name": "My Mod",
+	"entrypoints": {
+		"main": [
+			{
+				"adapter": "clojure",
+				"value": "mymod.core/init"
+			}
+		]
+	},
+	"depends": {
+		"skein": "*"
+	}
+}

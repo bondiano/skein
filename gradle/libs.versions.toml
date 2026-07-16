@@ -1,0 +1,22 @@
+# Single source of truth for versions (DESIGN.md §11: version catalog).
+# Fabric versions: https://fabricmc.net/develop
+# MC 26.1+ is unobfuscated: no yarn/intermediary, no remapping —
+# the loom plugin id is the new non-remapping `net.fabricmc.fabric-loom`.
+
+[versions]
+clojure = "1.12.5"
+nrepl = "1.7.0"
+fabric-loader = "0.19.3"
+minecraft = "26.2"
+fabric-api = "0.154.2+26.2"
+loom = "1.17.14"
+
+[libraries]
+clojure = { module = "org.clojure:clojure", version.ref = "clojure" }
+nrepl = { module = "nrepl:nrepl", version.ref = "nrepl" }
+fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
+minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
+fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api" }
+
+[plugins]
+loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
