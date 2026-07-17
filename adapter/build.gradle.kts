@@ -24,6 +24,14 @@ repositories {
 val minecraftVersion = providers.gradleProperty("skein.minecraft.version")
     .getOrElse(libs.versions.minecraft.get())
 
+// Resolves to the plain jars of our own modules (non-transitive) for the
+// flat merge into the adapter jar. Publishing (M5) must not re-declare
+// them as external deps of the published artifact.
+val bundle: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isTransitive = false
+}
+
 dependencies {
     minecraft("com.mojang:minecraft:$minecraftVersion")
     api(project(":runtime"))
@@ -32,16 +40,28 @@ dependencies {
     implementation(libs.fabric.loader)
     compileOnly(libs.slf4j)
 
-    // Jar-in-Jar: the adapter owns the Clojure version for the whole
-    // JVM. `include` is non-transitive — clojure's deps are listed
-    // explicitly. Non-mod jars get a generated fabric.mod.json wrapper, so
-    // Fabric Loader deduplicates them by semver across adapter versions.
-    include(project(":runtime"))
-    include(project(":repl"))
+    // Jar-in-Jar for THIRD-PARTY jars only: the adapter owns the Clojure
+    // version for the whole JVM, and the generated fabric.mod.json wrappers
+    // let Fabric Loader deduplicate them by semver against any other mod
+    // that bundles the same libs. `include` is non-transitive — clojure's
+    // deps are listed explicitly.
     include(libs.clojure)
     include(libs.clojure.spec)
     include(libs.clojure.core.specs)
     include(libs.nrepl)
+
+    // Own modules ship flat inside the adapter jar (below) — one Skein entry
+    // in the mod list, no dev_skein_* wrappers. They version in lockstep
+    // with the adapter, so loader-side dedup would buy nothing.
+    bundle(project(":runtime"))
+    bundle(project(":repl"))
+}
+
+tasks.jar {
+    dependsOn(bundle)
+    from({ bundle.map { zipTree(it) } }) {
+        exclude("META-INF/MANIFEST.MF")
+    }
 }
 
 dependencies {
