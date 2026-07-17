@@ -27,8 +27,9 @@ checkstyle {
 java {
     toolchain {
         // Unlike the runtime modules (JDK 25, the game's JVM), the plugin runs
-        // inside the Gradle daemon — target Gradle's supported baseline.
-        languageVersion = JavaLanguageVersion.of(17)
+        // inside the Gradle daemon. Java 21: Loom (compileOnly) requires it,
+        // so every consumer's build JVM is at least 21 anyway.
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -40,6 +41,7 @@ val generateVersions = tasks.register<WriteProperties>("generateVersions") {
     // asProvider(): `clojure` is both a version and a prefix (clojure-spec, …).
     property("clojure", libs.versions.clojure.asProvider().get())
     property("nrepl", libs.versions.nrepl.get())
+    property("tools-deps", libs.versions.tools.deps.get())
 }
 
 sourceSets.main {
@@ -47,6 +49,10 @@ sourceSets.main {
 }
 
 dependencies {
+    // Only to configure Loom run configs when the mod applies Loom; the
+    // plugin never loads these classes otherwise.
+    compileOnly(libs.loom.lib)
+
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

@@ -24,6 +24,10 @@ final class SkeinVersions {
         return require("nrepl");
     }
 
+    static String toolsDeps() {
+        return require("tools-deps");
+    }
+
     private static String require(String key) {
         String value = PROPERTIES.getProperty(key);
         if (value == null) {

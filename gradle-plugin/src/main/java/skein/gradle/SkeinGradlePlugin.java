@@ -3,6 +3,7 @@ package skein.gradle;
 import java.io.File;
 import java.util.Map;
 import java.util.Set;
+import net.fabricmc.loom.api.LoomGradleExtensionAPI;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -47,9 +48,29 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
         SkeinExtension extension = project.getExtensions().create(SkeinExtension.NAME, SkeinExtension.class);
         extension.getReflectionWarnings().convention("warn");
         extension.getNsLint().convention(true);
+        extension.getNreplPort().convention(7888);
 
         project.getPlugins().withType(JavaPlugin.class, javaPlugin -> configureClojureBuild(project, extension));
         banBundlingAdapterProvidedJars(project);
+        project.getPluginManager()
+                .withPlugin("net.fabricmc.fabric-loom", loomApplied -> configureLoom(project, extension));
+    }
+
+    /**
+     * Dev-run wiring on top of Loom: the nREPL port property for every run
+     * config, and tools.deps on the dev-only classpath so {@code add-lib!}
+     * works in the REPL ({@code localRuntime} never reaches the jar or the
+     * published metadata).
+     */
+    private void configureLoom(Project project, SkeinExtension extension) {
+        LoomGradleExtensionAPI loom =
+                (LoomGradleExtensionAPI) project.getExtensions().getByName("loom");
+        // Loom realizes run configs during script evaluation — read the port
+        // only after the build script (and its skein { } block) has run.
+        project.afterEvaluate(evaluated -> loom.getRuns()
+                .configureEach(run -> run.property(
+                        "skein.nrepl.port", extension.getNreplPort().get().toString())));
+        project.getDependencies().add("localRuntime", "org.clojure:tools.deps:" + SkeinVersions.toolsDeps());
     }
 
     private void configureClojureBuild(Project project, SkeinExtension extension) {

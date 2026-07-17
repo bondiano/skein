@@ -38,4 +38,10 @@ public abstract class SkeinExtension {
 
     /** Ns-naming lint ({@code <modid>.*} root): warning; default on. */
     public abstract Property<Boolean> getNsLint();
+
+    /**
+     * Port of the dev nREPL server; wired as {@code skein.nrepl.port} into
+     * every Loom run config. Default 7888.
+     */
+    public abstract Property<Integer> getNreplPort();
 }

@@ -17,6 +17,8 @@ plugins {
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
+        // Loom as a compileOnly library (run-config wiring).
+        maven("https://maven.fabricmc.net/") { name = "Fabric" }
     }
     versionCatalogs {
         // Shared with the root build — the single source of truth for versions.

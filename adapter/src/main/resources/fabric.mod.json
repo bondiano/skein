@@ -10,6 +10,9 @@
 	"languageAdapters": {
 		"clojure": "skein.adapter.ClojureLanguageAdapter"
 	},
+	"entrypoints": {
+		"main": ["skein.adapter.SkeinInit"]
+	},
 	"depends": {
 		"fabricloader": ">=0.19.0"
 	}

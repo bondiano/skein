@@ -10,6 +10,8 @@ clojure = "1.12.5"
 clojure-spec = "0.5.238"
 clojure-core-specs = "0.4.74"
 nrepl = "1.7.0"
+# add-lib in the dev REPL (dev-only classpath, never shipped)
+tools-deps = "0.23.1512"
 slf4j = "2.0.17"
 fabric-loader = "0.19.3"
 minecraft = "26.2"
@@ -28,6 +30,9 @@ clojure-spec = { module = "org.clojure:spec.alpha", version.ref = "clojure-spec"
 clojure-core-specs = { module = "org.clojure:core.specs.alpha", version.ref = "clojure-core-specs" }
 slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 nrepl = { module = "nrepl:nrepl", version.ref = "nrepl" }
+tools-deps = { module = "org.clojure:tools.deps", version.ref = "tools-deps" }
+# Loom as a library — compileOnly in the gradle plugin to configure run configs
+loom-lib = { module = "net.fabricmc:fabric-loom", version.ref = "loom" }
 fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
 fabric-loader-junit = { module = "net.fabricmc:fabric-loader-junit", version.ref = "fabric-loader" }
 minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
