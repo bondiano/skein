@@ -1,4 +1,4 @@
-// Classloader glue between the Clojure RT and Knot (DESIGN.md §4, §6).
+// Classloader glue between the Clojure RT and Knot.
 plugins {
     `java-library`
 }
@@ -12,4 +12,6 @@ java {
 dependencies {
     implementation(libs.clojure)
     compileOnly(libs.fabric.loader)
+    // Provided by the game environment (Minecraft ships slf4j).
+    compileOnly(libs.slf4j)
 }

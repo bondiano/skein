@@ -1,22 +1,40 @@
-# Single source of truth for versions (DESIGN.md §11: version catalog).
+# Single source of truth for versions — never hardcode them in module build files.
 # Fabric versions: https://fabricmc.net/develop
 # MC 26.1+ is unobfuscated: no yarn/intermediary, no remapping —
 # the loom plugin id is the new non-remapping `net.fabricmc.fabric-loom`.
 
 [versions]
 clojure = "1.12.5"
+# Transitive deps of org.clojure:clojure 1.12.5 — versions must match its pom
+# (JiJ `include` is non-transitive, so they are listed explicitly).
+clojure-spec = "0.5.238"
+clojure-core-specs = "0.4.74"
 nrepl = "1.7.0"
+slf4j = "2.0.17"
 fabric-loader = "0.19.3"
 minecraft = "26.2"
 fabric-api = "0.154.2+26.2"
 loom = "1.17.14"
+junit = "5.13.4"
+junit-platform = "1.13.4"
+# Build hygiene (Java lint/format; run in the Gradle daemon's JVM)
+spotless = "7.0.4"
+palantir-java-format = "2.68.0"
+checkstyle = "10.26.1"
 
 [libraries]
 clojure = { module = "org.clojure:clojure", version.ref = "clojure" }
+clojure-spec = { module = "org.clojure:spec.alpha", version.ref = "clojure-spec" }
+clojure-core-specs = { module = "org.clojure:core.specs.alpha", version.ref = "clojure-core-specs" }
+slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 nrepl = { module = "nrepl:nrepl", version.ref = "nrepl" }
 fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
+fabric-loader-junit = { module = "net.fabricmc:fabric-loader-junit", version.ref = "fabric-loader" }
 minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
 fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
 
 [plugins]
 loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
