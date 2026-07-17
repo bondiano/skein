@@ -39,6 +39,10 @@ dependencies {
     testImplementation(libs.fabric.loader.junit)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+    // For the add-lib REPL check: on dev runs the Skein plugin puts
+    // tools.deps on the classpath via Loom's localRuntime, but that
+    // configuration does not feed the test classpath.
+    testRuntimeOnly(libs.tools.deps)
 }
 
 tasks.test {
@@ -58,4 +62,10 @@ tasks.processResources {
     filesMatching("fabric.mod.json") {
         expand("version" to version)
     }
+}
+
+// Non-default port to demonstrate the option (and to coexist with a host
+// nREPL that may already own the conventional 7888).
+skein {
+    nreplPort = 7899
 }
