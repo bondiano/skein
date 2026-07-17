@@ -1,0 +1,3 @@
+{;; defmixin bodies use deftype-style method heads (inject, tickServer,
+ ;; the arg vector) that are data to the macro, not resolvable symbols.
+ :linters {:unresolved-symbol {:exclude [(skein.mixin/defmixin)]}}}
