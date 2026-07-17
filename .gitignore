@@ -21,6 +21,10 @@ bin/
 # Fabric dev runs
 run/
 example-mod/run/
+# Loom per-project caches (downloaded/derived, never committed)
+.fabric/
+# Loom's log4j config writes logs/ relative to the test working dir
+logs/
 
 # OS
 .DS_Store

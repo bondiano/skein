@@ -4,6 +4,9 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
+    // The Skein plugin is an included build: example-mod applies
+    // `dev.skein.fabric-clojure` the same way a published mod would.
+    includeBuild("gradle-plugin")
 }
 
 plugins {
@@ -25,9 +28,9 @@ include(
     "adapter",
     "runtime",
     "repl",
-    "gradle-plugin",
     "core-lib",
     "example-mod",
 )
 
+// gradle-plugin/ — included build (see pluginManagement above), built/tested via the root lifecycle tasks.
 // template/ — standalone repo template for modders (M5), intentionally not part of this build.
