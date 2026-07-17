@@ -1,14 +1,14 @@
 (ns skein.repl.middleware
-  "Opt-in nREPL middleware: каждый eval исполняется на игровом треде.
+  "Opt-in nREPL middleware: every eval runs on the game thread.
 
-  Включается на старте сервера (`skein.repl/start!` с
-  :game-thread-eval? true, из адаптера — -Dskein.nrepl.game-thread-eval=true).
+  Enabled at server start (`skein.repl/start!` with
+  :game-thread-eval? true; from the adapter — -Dskein.nrepl.game-thread-eval=true).
 
-  Реализация — обёртка кода сообщения в `skein.repl/on-game`: сам eval
-  остаётся в сессионном треде nREPL (interrupt работает), а формы
-  исполняются на игровом. Ограничение: код сообщения оборачивается в (do
-  ...), поэтому позиции в сообщениях об ошибках сдвинуты на префикс
-  обёртки."
+  Implemented by wrapping the message code in `skein.repl/on-game`: the
+  eval itself stays on the nREPL session thread (interrupt keeps
+  working), while the forms execute on the game thread. Limitation: the
+  message code is wrapped in a (do ...), so positions in error messages
+  are shifted by the wrapper prefix."
   (:require [nrepl.middleware :refer [set-descriptor!]]
             [skein.repl]))
 

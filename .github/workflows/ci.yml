@@ -13,8 +13,16 @@ jobs:
       fail-fast: false
       matrix:
         # Supported MC 26.x versions; 26.2 is the version-catalog default.
-        # The property overrides the catalog in :adapter and :example-mod.
-        minecraft: ["26.1", "26.1.2", "26.2"]
+        # The properties override the catalog in :adapter and :example-mod.
+        # fabric-api releases are MC-version-specific, so each MC version
+        # pins its own matching fabric-api build.
+        include:
+          - minecraft: "26.1"
+            fabric-api: "0.145.1+26.1"
+          - minecraft: "26.1.2"
+            fabric-api: "0.154.2+26.1.2"
+          - minecraft: "26.2"
+            fabric-api: "0.154.2+26.2"
     steps:
       - uses: actions/checkout@v4
 
@@ -30,10 +38,18 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build and test
-        run: ./gradlew build -Pskein.minecraft.version=${{ matrix.minecraft }} --stacktrace
+        run: >-
+          ./gradlew build
+          -Pskein.minecraft.version=${{ matrix.minecraft }}
+          -Pskein.fabricapi.version=${{ matrix.fabric-api }}
+          --stacktrace
 
       # The dev environment is covered by `build` (fabric-loader-junit);
       # this is the production side of the matrix — the built jars on the
       # real Fabric server launcher, plus the opt-in production REPL.
       - name: Production REPL smoke test
-        run: ./gradlew :example-mod:prodReplSmokeTest -Pskein.minecraft.version=${{ matrix.minecraft }} --stacktrace
+        run: >-
+          ./gradlew :example-mod:prodReplSmokeTest
+          -Pskein.minecraft.version=${{ matrix.minecraft }}
+          -Pskein.fabricapi.version=${{ matrix.fabric-api }}
+          --stacktrace

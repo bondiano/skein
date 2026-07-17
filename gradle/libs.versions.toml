@@ -12,6 +12,14 @@ clojure-core-specs = "0.4.74"
 nrepl = "1.7.0"
 # add-lib in the dev REPL (dev-only classpath, never shipped)
 tools-deps = "0.23.1512"
+# Mixin declaration validation in the compile fork (build-time only,
+# injected by the gradle plugin; never a runtime dependency of mods)
+malli = "0.17.0"
+# Test-only stand-ins for what the Fabric dev classpath provides at build
+# time (Loom installs the loader's own libraries there): ASM for the mixin
+# codegen, sponge-mixin for the callback classes.
+asm = "9.10.1"
+sponge-mixin = "0.17.3+mixin.0.8.7"
 slf4j = "2.0.17"
 fabric-loader = "0.19.3"
 # Fabric installer generation for the meta.fabricmc.net server-launcher URL
@@ -34,6 +42,9 @@ clojure-core-specs = { module = "org.clojure:core.specs.alpha", version.ref = "c
 slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 nrepl = { module = "nrepl:nrepl", version.ref = "nrepl" }
 tools-deps = { module = "org.clojure:tools.deps", version.ref = "tools-deps" }
+malli = { module = "metosin:malli", version.ref = "malli" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+sponge-mixin = { module = "net.fabricmc:sponge-mixin", version.ref = "sponge-mixin" }
 # Loom as a library — compileOnly in the gradle plugin to configure run configs
 loom-lib = { module = "net.fabricmc:fabric-loom", version.ref = "loom" }
 fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }

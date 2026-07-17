@@ -1,0 +1,7 @@
+{
+	"variants": {
+		"": {
+			"model": "skein_example:block/ruby_block"
+		}
+	}
+}

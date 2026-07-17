@@ -28,11 +28,17 @@ repositories {
 val minecraftVersion = providers.gradleProperty("skein.minecraft.version")
     .getOrElse(libs.versions.minecraft.get())
 
+// fabric-api releases are MC-version-specific — the CI matrix overrides it
+// in lockstep with skein.minecraft.version.
+val fabricApiVersion = providers.gradleProperty("skein.fabricapi.version")
+    .getOrElse(libs.versions.fabric.api.get())
+
 dependencies {
     minecraft("com.mojang:minecraft:$minecraftVersion")
     implementation(libs.fabric.loader)
     implementation(project(":adapter"))
     implementation(project(":core-lib"))
+    implementation("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
 
     // Integration test: fabric-loader-junit boots the real loader (Knot,
     // mod discovery, language adapters) inside the JUnit JVM — no game loop.
@@ -83,12 +89,11 @@ skein {
 val prodSmoke: SourceSet by sourceSets.creating
 
 dependencies {
-    // A plain JVM (no Fabric): JUnit orchestrates the server process, the
-    // nREPL client checks live in prodSmoke resources as Clojure source.
+    // A plain JVM (no Fabric): the whole test — server orchestration and the
+    // nREPL client checks — is clojure.test source in prodSmoke resources,
+    // run by clojure.main.
     "prodSmokeImplementation"(libs.clojure)
     "prodSmokeImplementation"(libs.nrepl)
-    "prodSmokeImplementation"(libs.junit.jupiter)
-    "prodSmokeRuntimeOnly"(libs.junit.platform.launcher)
 }
 
 // The adapter jar as the loader would consume it (flat-merged own modules +
@@ -100,6 +105,8 @@ val prodSmokeMods: Configuration by configurations.creating {
 
 dependencies {
     prodSmokeMods(project(":adapter"))
+    // The fat fabric-api jar: the loader extracts its JiJ modules itself.
+    prodSmokeMods("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
 }
 
 val fabricLauncherUrl = "https://meta.fabricmc.net/v2/versions/loader/" +
@@ -119,12 +126,13 @@ val downloadFabricServerLauncher by tasks.registering {
     }
 }
 
-val prodReplSmokeTest by tasks.registering(Test::class) {
+val prodReplSmokeTest by tasks.registering(JavaExec::class) {
     description = "Boots the built jars on the real Fabric server launcher and smoke-tests the opt-in production REPL."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    testClassesDirs = prodSmoke.output.classesDirs
     classpath = prodSmoke.runtimeClasspath
-    useJUnitPlatform()
+    mainClass = "clojure.main"
+    // clojure.test does the asserting; -main exits non-zero on failure.
+    args("-m", "skein-prod-smoke.smoke-test")
 
     val launcher = downloadFabricServerLauncher.map { it.outputs.files.singleFile }
     val modJars = prodSmokeMods + tasks.jar.get().outputs.files
@@ -138,7 +146,4 @@ val prodReplSmokeTest by tasks.registering(Test::class) {
             "-Dskein.smoke.runDir=${runDir.get().asFile.absolutePath}",
         )
     }
-    // The MC server and its world live outside Gradle's snapshot — rerun on
-    // every invocation, results are not cacheable.
-    outputs.upToDateWhen { false }
 }

@@ -42,6 +42,7 @@ val generateVersions = tasks.register<WriteProperties>("generateVersions") {
     property("clojure", libs.versions.clojure.asProvider().get())
     property("nrepl", libs.versions.nrepl.get())
     property("tools-deps", libs.versions.tools.deps.get())
+    property("malli", libs.versions.malli.get())
 }
 
 sourceSets.main {
@@ -52,6 +53,8 @@ dependencies {
     // Only to configure Loom run configs when the mod applies Loom; the
     // plugin never loads these classes otherwise.
     compileOnly(libs.loom.lib)
+    // groovy.json for the fabric.mod.json mixin-config patch (Gradle's own Groovy).
+    implementation(localGroovy())
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

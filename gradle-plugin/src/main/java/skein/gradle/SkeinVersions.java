@@ -28,6 +28,10 @@ final class SkeinVersions {
         return require("tools-deps");
     }
 
+    static String malli() {
+        return require("malli");
+    }
+
     private static String require(String key) {
         String value = PROPERTIES.getProperty(key);
         if (value == null) {

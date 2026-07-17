@@ -1,17 +1,18 @@
 (ns skein.repl
   "nREPL lifecycle + REPL-side helpers.
 
-  Dev: адаптер стартует сервер автоматически (SkeinInit), default
-  127.0.0.1:7888. Production: строго opt-in (config/skein/nrepl.properties
-  или -Dskein.nrepl.enabled=true), bind только loopback — nREPL-сессия
-  означает полный контроль над JVM, наружу порт не открываем никогда.
+  Dev: the adapter starts the server automatically (SkeinInit), default
+  127.0.0.1:7888. Production: strictly opt-in (config/skein/nrepl.properties
+  or -Dskein.nrepl.enabled=true), loopback bind only — an nREPL session
+  means full control over the JVM, the port is never opened to the outside.
 
   Helpers:
-  - `on-game` / `on-client` / `on-server` — синхронный диспатч тела на
-    игровой тред (клиент и сервер реализуют java.util.concurrent.Executor;
-    инстанс берётся из FabricLoader.getGameInstance());
-  - `add-lib!` — dev-only подключение библиотеки из Maven Central/Clojars
-    в живую сессию через tools.deps."
+  - `on-game` / `on-client` / `on-server` — synchronous dispatch of the
+    body onto the game thread (both the client and the server implement
+    java.util.concurrent.Executor; the instance comes from
+    FabricLoader.getGameInstance());
+  - `add-lib!` — dev-only loading of a library from Maven Central/Clojars
+    into the live session via tools.deps."
   (:require [clojure.java.io :as io]
             [nrepl.server :as nrepl-server])
   (:import (clojure.lang DynamicClassLoader RT)
@@ -26,18 +27,20 @@
 (defn started? [] (some? @server))
 
 (defn port
-  "Фактический порт слушающего сервера (nil, если не запущен).
-  Отличается от запрошенного при :port 0 (эфемерный порт в тестах)."
+  "The actual port of the listening server (nil when not running).
+  Differs from the requested one with :port 0 (an ephemeral port in
+  tests)."
   []
   (when-let [s @server]
     (.getLocalPort ^ServerSocket (:server-socket s))))
 
 (defn- with-runtime-classloader
-  "Вызывает f с TCCL = classloader, загрузивший Clojure (под Fabric — Knot).
-  Треды, порождённые внутри (accept-loop сервера → сессии → eval),
-  наследуют этот TCCL, поэтому `RT/baseLoader` в eval-сессиях резолвится в
-  Knot, а не в app-classloader — иначе классы eval-форм компилируются в
-  чужую иерархию и падают с ClassCastException на clojure.lang.IFn."
+  "Calls f with TCCL = the classloader that loaded Clojure (under Fabric
+  that is Knot). Threads spawned inside (the server's accept loop →
+  sessions → eval) inherit this TCCL, so `RT/baseLoader` in eval sessions
+  resolves to Knot rather than the app classloader — otherwise the
+  classes of eval'd forms compile into a foreign hierarchy and fail with
+  a ClassCastException on clojure.lang.IFn."
   [f]
   (let [thread (Thread/currentThread)
         previous (.getContextClassLoader thread)]
@@ -46,20 +49,20 @@
          (finally (.setContextClassLoader thread previous)))))
 
 (defn- ensure-user-ns!
-  "Гарантирует, что ns `user` (стартовый для nREPL-сессий) реферит
-  clojure.core: если первым его создаёт голый create-ns (так делает
-  session-middleware nREPL), в нём есть только java.lang-импорты и даже
-  (+ 1 2) не резолвится."
+  "Makes sure the ns `user` (the starting ns of nREPL sessions) refers
+  clojure.core: when a bare create-ns makes it first (as nREPL's
+  session middleware does), it only has the java.lang imports and even
+  (+ 1 2) does not resolve."
   []
   (binding [*ns* (create-ns 'user)]
     (refer-clojure)))
 
 (defn start!
-  "Стартует nREPL-сервер (идемпотентно; один сервер на JVM).
+  "Starts the nREPL server (idempotent; one server per JVM).
 
   opts: :port (default 7888), :bind (default \"127.0.0.1\"),
-  :game-thread-eval? (default false) — opt-in middleware, оборачивающий
-  каждый eval в `on-game` (см. skein.repl.middleware)."
+  :game-thread-eval? (default false) — opt-in middleware wrapping every
+  eval in `on-game` (see skein.repl.middleware)."
   ([] (start! {}))
   ([{:keys [port bind game-thread-eval?]
      :or {port 7888 bind "127.0.0.1" game-thread-eval? false}}]
@@ -76,8 +79,8 @@
             srv))))))
 
 (defn stop!
-  "Останавливает сервер, если запущен. Возвращает true, если было что
-  останавливать."
+  "Stops the server if it is running. Returns true when there was one to
+  stop."
   []
   (when-let [s @server]
     (nrepl-server/stop-server s)
@@ -87,13 +90,14 @@
 ;;; Game-thread dispatch
 
 (defonce dispatch-executor
-  ;; Переопределяемый Executor для диспатча (тесты, нестандартные среды);
-  ;; nil → игровой инстанс из loader'а.
+  ;; An overridable Executor for dispatch (tests, non-standard setups);
+  ;; nil → the game instance from the loader.
   (atom nil))
 
 (defn game-executor
-  "Executor игрового треда: MinecraftClient на клиенте, MinecraftServer на
-  сервере — оба Executor'ы. Бросает, пока игра не создана (ранние фазы)."
+  "The game-thread Executor: MinecraftClient on the client, MinecraftServer
+  on the server — both are Executors. Throws until the game exists (early
+  phases)."
   ^Executor []
   (or @dispatch-executor
       (let [game (.getGameInstance (FabricLoader/getInstance))]
@@ -109,7 +113,7 @@
                   (str "Game instance " (class game) " is not an Executor — cannot dispatch")))))))
 
 (defn dispatch
-  "Запускает f на игровом треде; возвращает promise с {:value v} или
+  "Runs f on the game thread; returns a promise of {:value v} or
   {:error t}."
   [f]
   (let [p (promise)]
@@ -122,8 +126,8 @@
 (def ^:private dispatch-timeout-ms 60000)
 
 (defn dispatch-sync
-  "Как dispatch, но блокируется до результата и пробрасывает исключения.
-  Таймаут — защита от вечного ожидания мёртвого игрового треда."
+  "Like dispatch, but blocks until the result and rethrows exceptions.
+  The timeout guards against waiting forever on a dead game thread."
   [f]
   (let [result (deref (dispatch f) dispatch-timeout-ms ::timeout)]
     (cond
@@ -135,17 +139,17 @@
       :else (:value result))))
 
 (defmacro on-game
-  "Выполняет body на игровом треде синхронно, возвращает значение body."
+  "Runs body on the game thread synchronously, returns body's value."
   [& body]
   `(dispatch-sync (fn [] ~@body)))
 
 (defmacro on-client
-  "= on-game; имя для читаемости клиентского кода."
+  "= on-game; the name reads better in client-side code."
   [& body]
   `(dispatch-sync (fn [] ~@body)))
 
 (defmacro on-server
-  "= on-game; имя для читаемости серверного кода."
+  "= on-game; the name reads better in server-side code."
   [& body]
   `(dispatch-sync (fn [] ~@body)))
 
@@ -155,8 +159,8 @@
   (.isDevelopmentEnvironment (FabricLoader/getInstance)))
 
 (defn- top-dynamic-classloader
-  "Самый верхний DynamicClassLoader в цепочке baseLoader'а — URL'ы,
-  добавленные в него, видны всем вложенным загрузчикам REPL-сессии."
+  "The topmost DynamicClassLoader in the baseLoader chain — URLs added to
+  it are visible to all the nested loaders of the REPL session."
   ^DynamicClassLoader []
   (loop [cl (RT/baseLoader) dcl nil]
     (if cl
@@ -168,12 +172,13 @@
    "clojars" {:url "https://repo.clojars.org/"}})
 
 (defn add-lib!
-  "Dev-only: резолвит lib (символ, напр. 'org.clojure/data.json) указанной
-  версии из Maven Central/Clojars через tools.deps и добавляет jar'ы (вместе
-  с транзитивными) в classloader текущей REPL-сессии. Возвращает пути.
+  "Dev-only: resolves lib (a symbol, e.g. 'org.clojure/data.json) of the
+  given version from Maven Central/Clojars via tools.deps and adds the
+  jars (with transitives) to the classloader of the current REPL session.
+  Returns the paths.
 
-  Экспериментируй вживую, потом фиксируй зависимость в build.gradle —
-  добавленное живёт до перезапуска JVM. В production выключено."
+  Experiment live, then pin the dependency in build.gradle — anything
+  added lives until the JVM restarts. Disabled in production."
   [lib version]
   (when-not (dev?)
     (throw (IllegalStateException.

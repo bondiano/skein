@@ -1,12 +1,15 @@
 package skein.gradle;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import net.fabricmc.loom.api.LoomGradleExtensionAPI;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.file.Directory;
 import org.gradle.api.plugins.BasePlugin;
 import org.gradle.api.plugins.JavaPlugin;
@@ -14,6 +17,7 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.language.jvm.tasks.ProcessResources;
 
 /**
  * Skein Gradle plugin, applied by mod authors on top of the non-remapping
@@ -92,6 +96,20 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
         project.getDependencies()
                 .add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, "org.clojure:clojure:" + SkeinVersions.clojure());
 
+        // Build-time-only deps of the mixins.edn path (malli validation).
+        // Resolved from the mod's repositories, but only ever when a
+        // mixins.edn exists — the defmixin path needs none of it.
+        Configuration mixinTooling = project.getConfigurations().create("skeinMixinTooling", configuration -> {
+            configuration.setCanBeConsumed(false);
+            configuration.setDescription("Skein build-time mixins.edn validation (malli); never shipped.");
+            configuration.defaultDependencies(dependencies ->
+                    dependencies.add(project.getDependencies().create("metosin:malli:" + SkeinVersions.malli())));
+        });
+        Provider<List<File>> mixinEdnFiles = project.provider(() -> main.getResources().getSrcDirs().stream()
+                .map(dir -> new File(dir, "mixins.edn"))
+                .filter(File::isFile)
+                .toList());
+
         TaskProvider<ClojureCompileTask> compileClojure = project.getTasks()
                 .register(COMPILE_CLOJURE_TASK, ClojureCompileTask.class, task -> {
                     task.setGroup(BasePlugin.BUILD_GROUP);
@@ -102,6 +120,9 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
                     task.getReflectionWarnings().set(extension.getReflectionWarnings());
                     task.getModId().set(extension.getModId());
                     task.getNsLint().set(extension.getNsLint());
+                    task.getMixinEdnFiles().from(mixinEdnFiles);
+                    task.getMixinResourceDirs()
+                            .from(project.provider(() -> main.getResources().getSrcDirs()));
                     // clojure.lang.Compile requires the sources and the compile
                     // path itself on the classpath, plus the mod's own Java
                     // classes (interop stubs) and the runtime dependencies.
@@ -110,13 +131,47 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
                             clojureClasses,
                             main.getOutput().getClassesDirs(),
                             project.getConfigurations().getByName(main.getRuntimeClasspathConfigurationName()));
-                    task.onlyIf(spec ->
-                            !((ClojureCompileTask) spec).getNamespaces().get().isEmpty());
+                    task.classpath(project.files((Callable<Object>)
+                            () -> task.getMixinEdnFiles().isEmpty() ? project.files() : mixinTooling));
+                    task.onlyIf(spec -> {
+                        ClojureCompileTask self = (ClojureCompileTask) spec;
+                        return !self.getNamespaces().get().isEmpty()
+                                || !self.getMixinEdnFiles().isEmpty();
+                    });
                 });
 
         // Registers the AOT classes as main output: `jar` packs them and
         // every consumer of the source set output waits for compileClojure.
         main.getOutput().dir(Map.of("builtBy", compileClojure), clojureClasses);
+
+        registerMixinConfig(project, extension, compileClojure, clojureClasses);
+    }
+
+    /**
+     * The last step of the mixins-as-data pipeline: the generated
+     * {@code <modid>.skein-mixins.json} must be listed in fabric.mod.json,
+     * and the author never writes it there — a dedicated task patches the
+     * *processed* copy after both processResources and compileClojure ran,
+     * before anything consumes the classes (jar, dev runs, tests).
+     */
+    private void registerMixinConfig(
+            Project project,
+            SkeinExtension extension,
+            TaskProvider<ClojureCompileTask> compileClojure,
+            Provider<Directory> clojureClasses) {
+        TaskProvider<ProcessResources> processResources =
+                project.getTasks().named(JavaPlugin.PROCESS_RESOURCES_TASK_NAME, ProcessResources.class);
+        TaskProvider<MixinModJsonTask> mixinModJson = project.getTasks()
+                .register("skeinMixinModJson", MixinModJsonTask.class, task -> {
+                    task.setDescription("Registers the generated Skein mixin config in the processed fabric.mod.json.");
+                    task.dependsOn(compileClojure, processResources);
+                    task.getClassesDir().set(clojureClasses);
+                    task.getConfigFileName().set(extension.getModId().map(id -> id + ".skein-mixins.json"));
+                    task.getFabricModJson()
+                            .fileProvider(
+                                    processResources.map(pr -> new File(pr.getDestinationDir(), "fabric.mod.json")));
+                });
+        project.getTasks().named(JavaPlugin.CLASSES_TASK_NAME).configure(classes -> classes.dependsOn(mixinModJson));
     }
 
     private void banBundlingAdapterProvidedJars(Project project) {

@@ -5,8 +5,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 import javax.inject.Inject;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -16,6 +19,7 @@ import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
+import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
@@ -57,6 +61,20 @@ public abstract class ClojureCompileTask extends JavaExec {
     @Input
     public abstract Property<Boolean> getNsLint();
 
+    /**
+     * The mod's {@code mixins.edn} files (usually zero or one) — an input so
+     * editing declarations recompiles, and the signal that puts the malli
+     * tooling on the fork classpath.
+     */
+    @InputFiles
+    @Optional
+    @PathSensitive(PathSensitivity.RELATIVE)
+    public abstract ConfigurableFileCollection getMixinEdnFiles();
+
+    /** Resource roots the mixin pipeline scans for {@code mixins.edn}. */
+    @Internal
+    public abstract ConfigurableFileCollection getMixinResourceDirs();
+
     @Inject
     protected abstract FileSystemOperations getFileSystemOperations();
 
@@ -82,7 +100,7 @@ public abstract class ClojureCompileTask extends JavaExec {
         if (!destination.mkdirs()) {
             throw new GradleException("Could not create Clojure compile path " + destination);
         }
-        setArgs(getNamespaces().get());
+        configureEntryPoint();
         systemProperty("clojure.compile.path", destination.getAbsolutePath());
         systemProperty("clojure.compile.warn-on-reflection", String.valueOf(!"off".equals(reflectionMode)));
 
@@ -103,6 +121,52 @@ public abstract class ClojureCompileTask extends JavaExec {
             }
             getLogger().warn("Skein: {}", summary);
         }
+    }
+
+    /**
+     * With skein.mixin.aot on the classpath (core-lib present) the fork runs
+     * the Skein pipeline: AOT compilation plus mixin collection, validation
+     * against the real game classes, ASM codegen and mixin-config output —
+     * one JVM, because loading the namespaces is what fills the defmixin
+     * registry. Without core-lib it falls back to plain clojure.lang.Compile.
+     */
+    private void configureEntryPoint() {
+        if (!classpathHasMixinPipeline()) {
+            setArgs(getNamespaces().get());
+            return;
+        }
+        getMainClass().set("clojure.main");
+        List<String> args = new ArrayList<>(List.of("-m", "skein.mixin.aot"));
+        args.addAll(getNamespaces().get());
+        setArgs(args);
+        if (getModId().isPresent()) {
+            systemProperty("skein.mixin.modid", getModId().get());
+        }
+        systemProperty(
+                "skein.mixin.resources",
+                getMixinResourceDirs().getFiles().stream()
+                        .map(File::getAbsolutePath)
+                        .collect(Collectors.joining(File.pathSeparator)));
+    }
+
+    private boolean classpathHasMixinPipeline() {
+        String marker = "skein/mixin/aot.clj";
+        for (File entry : getClasspath().getFiles()) {
+            if (entry.isDirectory()) {
+                if (new File(entry, marker).isFile()) {
+                    return true;
+                }
+            } else if (entry.isFile() && entry.getName().endsWith(".jar")) {
+                try (ZipFile zip = new ZipFile(entry)) {
+                    if (zip.getEntry(marker) != null) {
+                        return true;
+                    }
+                } catch (IOException e) {
+                    // An unreadable classpath jar will fail the fork anyway.
+                }
+            }
+        }
+        return false;
     }
 
     private void lintNamespaces() {
