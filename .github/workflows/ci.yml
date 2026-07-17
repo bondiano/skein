@@ -31,3 +31,9 @@ jobs:
 
       - name: Build and test
         run: ./gradlew build -Pskein.minecraft.version=${{ matrix.minecraft }} --stacktrace
+
+      # The dev environment is covered by `build` (fabric-loader-junit);
+      # this is the production side of the matrix — the built jars on the
+      # real Fabric server launcher, plus the opt-in production REPL.
+      - name: Production REPL smoke test
+        run: ./gradlew :example-mod:prodReplSmokeTest -Pskein.minecraft.version=${{ matrix.minecraft }} --stacktrace

@@ -69,3 +69,76 @@ tasks.processResources {
 skein {
     nreplPort = 7899
 }
+
+// ---------------------------------------------------------------------------
+// Production smoke test: the built jars on the real Fabric server launcher.
+// The dev environment is covered by `test` (fabric-loader-junit), but the
+// production topology differs (fabric-server-launch, JiJ extraction, no Loom
+// classpath) — so the opt-in production REPL is exercised against a real
+// dedicated server: boot, connect over nREPL, eval interop, verify.
+// Needs network (downloads the launcher and the MC server); runs via the
+// dedicated `prodReplSmokeTest` task, never as part of `check`.
+// ---------------------------------------------------------------------------
+
+val prodSmoke: SourceSet by sourceSets.creating
+
+dependencies {
+    // A plain JVM (no Fabric): JUnit orchestrates the server process, the
+    // nREPL client checks live in prodSmoke resources as Clojure source.
+    "prodSmokeImplementation"(libs.clojure)
+    "prodSmokeImplementation"(libs.nrepl)
+    "prodSmokeImplementation"(libs.junit.jupiter)
+    "prodSmokeRuntimeOnly"(libs.junit.platform.launcher)
+}
+
+// The adapter jar as the loader would consume it (flat-merged own modules +
+// JiJ third-party jars) — resolved artifact only, no transitive deps.
+val prodSmokeMods: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isTransitive = false
+}
+
+dependencies {
+    prodSmokeMods(project(":adapter"))
+}
+
+val fabricLauncherUrl = "https://meta.fabricmc.net/v2/versions/loader/" +
+    "$minecraftVersion/${libs.versions.fabric.loader.get()}/${libs.versions.fabric.installer.get()}/server/jar"
+
+val downloadFabricServerLauncher by tasks.registering {
+    description = "Downloads fabric-server-launch.jar for the production REPL smoke test."
+    val url = fabricLauncherUrl
+    val target = layout.buildDirectory.file("prod-smoke/fabric-server-launch-$minecraftVersion.jar")
+    inputs.property("url", url)
+    outputs.file(target)
+    doLast {
+        val file = target.get().asFile
+        uri(url).toURL().openStream().use { input ->
+            file.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+}
+
+val prodReplSmokeTest by tasks.registering(Test::class) {
+    description = "Boots the built jars on the real Fabric server launcher and smoke-tests the opt-in production REPL."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = prodSmoke.output.classesDirs
+    classpath = prodSmoke.runtimeClasspath
+    useJUnitPlatform()
+
+    val launcher = downloadFabricServerLauncher.map { it.outputs.files.singleFile }
+    val modJars = prodSmokeMods + tasks.jar.get().outputs.files
+    val runDir = layout.buildDirectory.dir("prod-smoke/run")
+    inputs.files(modJars)
+    inputs.files(downloadFabricServerLauncher)
+    jvmArgumentProviders.add {
+        listOf(
+            "-Dskein.smoke.launcherJar=${launcher.get().absolutePath}",
+            "-Dskein.smoke.modJars=${modJars.asPath}",
+            "-Dskein.smoke.runDir=${runDir.get().asFile.absolutePath}",
+        )
+    }
+    // The MC server and its world live outside Gradle's snapshot — rerun on
+    // every invocation, results are not cacheable.
+    outputs.upToDateWhen { false }
+}
