@@ -1,4 +1,4 @@
-// core-lib — a separate artifact mods depend on (DESIGN.md §8):
+// core-lib — a separate artifact mods depend on:
 // registry DSL, event wrappers registering vars (hot reload), interop helpers.
 plugins {
     `java-library`

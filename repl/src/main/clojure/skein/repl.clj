@@ -3,4 +3,4 @@
 
   M2: start/stop поверх gradle-конфига (default port 7888), eval в
   отдельном треде, helpers `on-client`/`on-server`, opt-in middleware
-  для диспатча на game thread (DESIGN.md §7).")
+  для диспатча на game thread.")

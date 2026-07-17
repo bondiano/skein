@@ -1,6 +1,6 @@
 (ns skein.core
   "Skein core-lib: декларативный registry DSL, event-обёртки и interop
-  helpers (DESIGN.md §8).
+  helpers.
 
   M4:
   - `(register! {:blocks {...} :items {...}})` — сбор деклараций и флаш

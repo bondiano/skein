@@ -1,4 +1,4 @@
-// nREPL lifecycle + middleware (DESIGN.md §7): dev out of the box,
+// nREPL lifecycle + middleware: dev out of the box,
 // production strictly opt-in, game-thread dispatch middleware.
 plugins {
     `java-library`
