@@ -1,13 +1,14 @@
 // Demo mod exercising everything: entrypoints, registry DSL, events,
-// Java-stub mixin pattern (DESIGN.md §9.1). Doubles as the CI integration test.
+// Java-stub mixin pattern. Doubles as the CI integration test.
+// MC 26.x is unobfuscated — non-remapping Loom, plain `implementation`, no mappings.
+//
+// This is the M1 exit criterion in action: Loom + the Skein plugin is all a
+// mod needs — the plugin wires src/main/clojure, AOT before `jar`, the lints
+// and a consistent Clojure version.
 plugins {
     `java-library`
-    // M0/M1: switch to the non-remapping Loom + the Skein plugin:
-    //   alias(libs.plugins.loom)
-    // with dependencies (MC 26.x is unobfuscated — no mappings, plain implementation):
-    //   minecraft(libs.minecraft)
-    //   implementation(libs.fabric.loader)
-    //   implementation(libs.fabric.api)
+    alias(libs.plugins.loom)
+    id("dev.skein.fabric-clojure")
 }
 
 java {
@@ -16,13 +17,40 @@ java {
     }
 }
 
-dependencies {
-    implementation(libs.clojure)
-    implementation(project(":core-lib"))
+// Loom declares project-level repositories, which makes Gradle ignore the
+// settings-level ones — Clojars (nREPL via :repl) has to be re-declared here.
+repositories {
+    maven("https://repo.clojars.org/") { name = "Clojars" }
 }
 
-sourceSets.main {
-    resources.srcDir("src/main/clojure")
+// CI builds the matrix of supported MC versions by overriding the catalog
+// default: ./gradlew build -Pskein.minecraft.version=26.1
+val minecraftVersion = providers.gradleProperty("skein.minecraft.version")
+    .getOrElse(libs.versions.minecraft.get())
+
+dependencies {
+    minecraft("com.mojang:minecraft:$minecraftVersion")
+    implementation(libs.fabric.loader)
+    implementation(project(":adapter"))
+    implementation(project(":core-lib"))
+
+    // Integration test: fabric-loader-junit boots the real loader (Knot,
+    // mod discovery, language adapters) inside the JUnit JVM — no game loop.
+    testImplementation(libs.fabric.loader.junit)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+loom {
+    mods {
+        create("skein_example") {
+            sourceSet(sourceSets.getByName("main"))
+        }
+    }
 }
 
 tasks.processResources {

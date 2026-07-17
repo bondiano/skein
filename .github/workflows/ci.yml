@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build (MC ${{ matrix.minecraft }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Supported MC 26.x versions; 26.2 is the version-catalog default.
+        # The property overrides the catalog in :adapter and :example-mod.
+        minecraft: ["26.1", "26.1.2", "26.2"]
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK to run Gradle itself; the JDK 25 build toolchain is
+      # auto-provisioned by the foojay resolver.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Build and test
+        run: ./gradlew build -Pskein.minecraft.version=${{ matrix.minecraft }} --stacktrace
