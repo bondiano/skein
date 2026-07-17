@@ -2,8 +2,9 @@
   "nREPL lifecycle + REPL-side helpers.
 
   Dev: адаптер стартует сервер автоматически (SkeinInit), default
-  127.0.0.1:7888. Production: строго opt-in, приезжает отдельным
-  milestone'ом вместе с security-моделью.
+  127.0.0.1:7888. Production: строго opt-in (config/skein/nrepl.properties
+  или -Dskein.nrepl.enabled=true), bind только loopback — nREPL-сессия
+  означает полный контроль над JVM, наружу порт не открываем никогда.
 
   Helpers:
   - `on-game` / `on-client` / `on-server` — синхронный диспатч тела на
