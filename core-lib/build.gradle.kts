@@ -10,6 +10,17 @@ java {
     }
 }
 
+// The deobfuscated Minecraft jar and its libraries, as Loom resolves them for
+// example-mod, minus the Skein project jars. example-mod resolves its own
+// runtime classpath in its own build (Gradle 9 forbids resolving another
+// project's configuration during this one's resolution) and writes the paths to
+// a file; the test task depends on that task and reads the file here. This
+// module needs no Loom of its own.
+val gameClasspathFile = file("${project(":example-mod").projectDir}/build/skein-game-classpath.txt")
+val gameClasspath = files(provider {
+    if (gameClasspathFile.exists()) gameClasspathFile.readLines().filter { it.isNotBlank() } else emptyList()
+})
+
 dependencies {
     implementation(libs.clojure)
     // M4: compileOnly fabric-api / game classes via Loom for event wrappers.
@@ -26,6 +37,15 @@ dependencies {
     testImplementation(libs.malli)
     testRuntimeOnly(project(":runtime"))
     testRuntimeOnly(libs.slf4j)
+
+    // The FP API layer's L1 coercion (skein.id/pos/text) turns data into real
+    // game types (Identifier, BlockPos, Vec3, Component). Its unit tests build
+    // those objects without booting the game, so the deobfuscated Minecraft jar
+    // and the library set it links against must be on the test runtime
+    // classpath. Loom resolves exactly that set for example-mod; reuse it here,
+    // minus the Skein project jars — this module's own Clojure sources load from
+    // its resources, and pulling the built jars back in would be circular.
+    testRuntimeOnly(gameClasspath)
 }
 
 sourceSets.main {
@@ -39,4 +59,7 @@ sourceSets.test {
 
 tasks.test {
     useJUnitPlatform()
+    // example-mod (which applies Loom) resolves and writes the game classpath.
+    dependsOn(":example-mod:exportGameClasspath")
+    // MC 26.x classes are Java 25 bytecode; the toolchain above already targets 25.
 }

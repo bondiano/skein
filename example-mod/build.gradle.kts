@@ -55,6 +55,25 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// Export the resolved runtime classpath (the deobfuscated Minecraft jar + its
+// library set that Loom resolves here) so core-lib's tests can build real game
+// types without applying Loom themselves. The Skein project jars are dropped:
+// core-lib loads its own Clojure sources from resources, and pulling its built
+// jar back in would be circular. Resolved in this project's own context, which
+// Gradle 9 requires.
+val exportGameClasspath by tasks.registering {
+    val runtimeClasspath = configurations.named("runtimeClasspath")
+    val outputFile = layout.buildDirectory.file("skein-game-classpath.txt")
+    outputs.file(outputFile)
+    doLast {
+        val skeinJars = Regex("/(adapter|core-lib|runtime|repl|example-mod)/build/")
+        outputFile.get().asFile.writeText(
+            runtimeClasspath.get()
+                .filterNot { skeinJars.containsMatchIn(it.path) }
+                .joinToString("\n") { it.absolutePath })
+    }
+}
+
 loom {
     mods {
         create("skein_example") {
