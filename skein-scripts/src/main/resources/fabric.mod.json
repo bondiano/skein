@@ -1,0 +1,22 @@
+{
+	"schemaVersion": 1,
+	"id": "skein_scripts",
+	"version": "${version}",
+	"name": "Skein Scripts",
+	"description": "Load plain Clojure (.clj) scripts from config/skein/scripts/ at runtime, with deps.edn support and live reload.",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			{
+				"adapter": "clojure",
+				"value": "skein-scripts.core/init"
+			}
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.0",
+		"minecraft": ">=26.1",
+		"skein": "*",
+		"fabric-api": "*"
+	}
+}

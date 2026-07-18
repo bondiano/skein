@@ -29,6 +29,7 @@ include(
     "runtime",
     "repl",
     "core-lib",
+    "skein-scripts",
     "example-mod",
 )
 

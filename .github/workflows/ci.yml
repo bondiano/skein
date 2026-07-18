@@ -53,3 +53,13 @@ jobs:
           -Pskein.minecraft.version=${{ matrix.minecraft }}
           -Pskein.fabricapi.version=${{ matrix.fabric-api }}
           --stacktrace
+
+      # Skein Scripts on the same real server: a script loads at the
+      # server-started phase, a deps.edn resolves a library in production,
+      # and reload! hot-reloads the script over the opt-in REPL.
+      - name: Skein Scripts production smoke test
+        run: >-
+          ./gradlew :skein-scripts:prodReplSmokeTest
+          -Pskein.minecraft.version=${{ matrix.minecraft }}
+          -Pskein.fabricapi.version=${{ matrix.fabric-api }}
+          --stacktrace
