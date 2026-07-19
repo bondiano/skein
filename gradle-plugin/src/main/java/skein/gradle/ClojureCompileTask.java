@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 import javax.inject.Inject;
@@ -37,7 +36,8 @@ import org.gradle.api.tasks.PathSensitivity;
  */
 public abstract class ClojureCompileTask extends JavaExec {
 
-    private static final Set<String> REFLECTION_MODES = Set.of("warn", "error", "off");
+    /** Valid reflection-lint modes, in a stable order for error messages. */
+    private static final List<String> REFLECTION_MODES = List.of("warn", "error", "off");
 
     /** The Clojure source tree — an input for up-to-date checks only. */
     @InputFiles
@@ -86,8 +86,9 @@ public abstract class ClojureCompileTask extends JavaExec {
     public void exec() {
         String reflectionMode = getReflectionWarnings().get();
         if (!REFLECTION_MODES.contains(reflectionMode)) {
-            throw new GradleException(
-                    "skein.reflectionWarnings must be one of " + REFLECTION_MODES + ", got '" + reflectionMode + "'");
+            throw new GradleException("Skein: reflectionWarnings must be one of " + REFLECTION_MODES + ", got '"
+                    + reflectionMode + "'. Set it in the skein { } block of build.gradle.kts,"
+                    + " e.g. skein { reflectionWarnings = \"error\" }.");
         }
         lintNamespaces();
 
@@ -98,7 +99,8 @@ public abstract class ClojureCompileTask extends JavaExec {
         File destination = getDestinationDirectory().get().getAsFile();
         getFileSystemOperations().delete(spec -> spec.delete(destination));
         if (!destination.mkdirs()) {
-            throw new GradleException("Could not create Clojure compile path " + destination);
+            throw new GradleException("Skein: could not create the Clojure compile output directory " + destination
+                    + " — check filesystem permissions and that no file exists at that path.");
         }
         configureEntryPoint();
         systemProperty("clojure.compile.path", destination.getAbsolutePath());
