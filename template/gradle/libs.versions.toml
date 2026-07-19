@@ -1,0 +1,33 @@
+# Versions for this mod, in one place. Bump these to move MC/Fabric/Skein
+# versions — nothing else in the build spells a version out.
+#
+# MC 26.1+ is unobfuscated: no yarn/intermediary, no remapping. The Loom
+# plugin is the non-remapping `net.fabricmc.fabric-loom`.
+# Fabric versions: https://fabricmc.net/develop
+
+[versions]
+minecraft = "26.2"
+fabric-loader = "0.19.3"
+# fabric-api releases are MC-version-specific — bump it together with minecraft.
+fabric-api = "0.154.2+26.2"
+loom = "1.17.14"
+# The Skein toolchain version. The adapter (library mod), core-lib (the FP
+# layer) and the Gradle plugin ship together under one version — set this to
+# the Skein release you target. Clojure itself is pinned automatically by the
+# plugin, so it never appears here.
+skein = "SET-ME"
+
+[libraries]
+minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
+fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
+fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api" }
+# The library mod the adapter ships as; your mod `depends` on it at runtime.
+skein-adapter = { module = "dev.skein:adapter", version.ref = "skein" }
+# The FP layer (skein.core / skein.events / skein.text / skein.world / …).
+# Ships as Clojure sources; the plugin's AOT bakes the namespaces you require
+# into your jar.
+skein-core-lib = { module = "dev.skein:core-lib", version.ref = "skein" }
+
+[plugins]
+loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
+skein = { id = "dev.skein.fabric-clojure", version.ref = "skein" }

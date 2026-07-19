@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Clojure tooling
+.cpcache/
+.clj-kondo/.cache/
+.lsp/.cache/
+.nrepl-port
+
+# Fabric dev runs
+run/
+# Loom per-project caches (downloaded/derived, never committed)
+.fabric/
+# Loom writes logs/ relative to the run working dir
+logs/
+
+# OS
+.DS_Store
