@@ -76,9 +76,18 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// The mod version follows <semver>+clojure.<clojure-version>: the base semver
+// (gradle.properties) plus the exact Clojure the adapter bundles (from the
+// version catalog), as SemVer build metadata. A release then advertises which
+// runtime it ships, and it stays a single source of truth — bump the base in
+// one place, the Clojure part tracks the catalog. The plain project.version is
+// still the Maven/JiJ artifact coordinate.
+val clojureVersion = libs.versions.clojure.asProvider().get()
+val modVersion = "$version+clojure.$clojureVersion"
+
 tasks.processResources {
-    inputs.property("version", version)
+    inputs.property("version", modVersion)
     filesMatching("fabric.mod.json") {
-        expand("version" to version)
+        expand("version" to modVersion)
     }
 }
