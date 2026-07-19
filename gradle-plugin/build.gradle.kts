@@ -3,6 +3,7 @@
 // adapter-provided jars. Lives as an included build — see settings.gradle.kts.
 plugins {
     `java-gradle-plugin`
+    `maven-publish`
     checkstyle
     alias(libs.plugins.spotless)
 }
@@ -31,6 +32,7 @@ java {
         // so every consumer's build JVM is at least 21 anyway.
         languageVersion = JavaLanguageVersion.of(21)
     }
+    withSourcesJar()
 }
 
 // Bake the catalog's Clojure/nREPL versions into the plugin jar: mods
@@ -67,9 +69,66 @@ tasks.test {
 gradlePlugin {
     plugins {
         create("skein") {
-            // Provisional id until the Clojars group / final coordinates are settled (Pre-M0).
             id = "dev.skein.fabric-clojure"
             implementationClass = "skein.gradle.SkeinGradlePlugin"
+            displayName = "Skein — Clojure for Fabric"
+            description = "Builds a Fabric mod written in Clojure on top of the non-remapping " +
+                    "Loom: a src/main/clojure source set, AOT before jar, reflection/ns lints, " +
+                    "defmixin codegen, pinned Clojure version, and a dev nREPL in every run."
         }
     }
+}
+
+// Published to Clojars/Maven so a mod applies `dev.skein.fabric-clojure` via
+// pluginManagement. `maven-publish` + `java-gradle-plugin` create two
+// publications: `pluginMaven` (the implementation jar) and the plugin marker
+// `dev.skein.fabric-clojure:dev.skein.fabric-clojure.gradle.plugin`. Only the
+// implementation jar is renamed off the project name; the marker keeps its
+// derived coordinates so plugin resolution works.
+publishing {
+    publications.withType<MavenPublication>().configureEach {
+        pom {
+            name = "Skein Gradle Plugin"
+            description = "Gradle plugin that builds Fabric mods written in Clojure with Skein."
+            url = "https://github.com/bondiano/skein"
+            licenses {
+                license {
+                    name = "MIT License"
+                    url = "https://opensource.org/licenses/MIT"
+                }
+            }
+            developers {
+                developer {
+                    id = "bondiano"
+                    name = "bondiano"
+                }
+            }
+            scm {
+                url = "https://github.com/bondiano/skein"
+                connection = "scm:git:https://github.com/bondiano/skein.git"
+                developerConnection = "scm:git:ssh://git@github.com/bondiano/skein.git"
+            }
+        }
+    }
+    repositories {
+        // Clojars deploy: -PclojarsUsername / -PclojarsPassword (a deploy token)
+        // or CLOJARS_USERNAME / CLOJARS_PASSWORD. `publishToMavenLocal` needs none.
+        maven {
+            name = "Clojars"
+            url = uri("https://repo.clojars.org")
+            credentials {
+                username = (providers.gradleProperty("clojarsUsername")
+                    .orElse(providers.environmentVariable("CLOJARS_USERNAME"))).orNull
+                password = (providers.gradleProperty("clojarsPassword")
+                    .orElse(providers.environmentVariable("CLOJARS_PASSWORD"))).orNull
+            }
+        }
+    }
+}
+
+// The implementation jar carries the project name by default (gradle-plugin);
+// give it the published artifact name. The marker publication is left alone.
+afterEvaluate {
+    (publishing.publications.getByName("pluginMaven") as MavenPublication).artifactId =
+        "skein-gradle-plugin"
 }

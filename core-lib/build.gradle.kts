@@ -2,12 +2,16 @@
 // registry DSL, event wrappers registering vars (hot reload), interop helpers.
 plugins {
     `java-library`
+    `maven-publish`
 }
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+    // Ships as Clojure sources anyway (the .clj tree is packed as resources
+    // below), but a standard -sources jar keeps Maven tooling happy.
+    withSourcesJar()
 }
 
 // The deobfuscated Minecraft jar and its libraries, as Loom resolves them for
@@ -62,4 +66,54 @@ tasks.test {
     // example-mod (which applies Loom) resolves and writes the game classpath.
     dependsOn(":example-mod:exportGameClasspath")
     // MC 26.x classes are Java 25 bytecode; the toolchain above already targets 25.
+}
+
+// The FP API layer mods compile against — the primary Clojure artifact a modder
+// writes `dev.skein/skein` for. Publishes the jar (Clojure sources inside) plus
+// a -sources jar; the group and base version come from the root gradle.properties.
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            artifactId = "skein"
+            from(components["java"])
+            pom {
+                name = "Skein"
+                description = "Idiomatic Clojure API for Fabric mods — registry DSL, events, " +
+                    "the functional world/command/text layer, and defmixin."
+                url = "https://github.com/bondiano/skein"
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://opensource.org/licenses/MIT"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "bondiano"
+                        name = "bondiano"
+                    }
+                }
+                scm {
+                    url = "https://github.com/bondiano/skein"
+                    connection = "scm:git:https://github.com/bondiano/skein.git"
+                    developerConnection = "scm:git:ssh://git@github.com/bondiano/skein.git"
+                }
+            }
+        }
+    }
+    repositories {
+        // Clojars deploy: pass -PclojarsUsername / -PclojarsPassword (a deploy
+        // token) or CLOJARS_USERNAME / CLOJARS_PASSWORD in the environment.
+        // `publishToMavenLocal` needs no credentials and is how CI/dev verify.
+        maven {
+            name = "Clojars"
+            url = uri("https://repo.clojars.org")
+            credentials {
+                username = (providers.gradleProperty("clojarsUsername")
+                    .orElse(providers.environmentVariable("CLOJARS_USERNAME"))).orNull
+                password = (providers.gradleProperty("clojarsPassword")
+                    .orElse(providers.environmentVariable("CLOJARS_PASSWORD"))).orNull
+            }
+        }
+    }
 }

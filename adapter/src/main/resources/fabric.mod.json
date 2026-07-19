@@ -5,7 +5,12 @@
 	"name": "Skein",
 	"description": "Clojure language adapter for Fabric — a skein of Yarn.",
 	"authors": [],
-	"contact": {},
+	"contact": {
+		"homepage": "https://github.com/bondiano/skein",
+		"sources": "https://github.com/bondiano/skein",
+		"issues": "https://github.com/bondiano/skein/issues"
+	},
+	"license": "MIT",
 	"environment": "*",
 	"languageAdapters": {
 		"clojure": "skein.adapter.ClojureLanguageAdapter"

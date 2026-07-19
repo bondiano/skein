@@ -4,6 +4,7 @@
 // nests the included jars directly).
 plugins {
     `java-library`
+    `maven-publish`
     alias(libs.plugins.loom)
 }
 
@@ -11,6 +12,7 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+    withSourcesJar()
 }
 
 // Loom declares project-level repositories, which makes Gradle ignore the
@@ -89,5 +91,58 @@ tasks.processResources {
     inputs.property("version", modVersion)
     filesMatching("fabric.mod.json") {
         expand("version" to modVersion)
+    }
+}
+
+// The library mod, published so a mod's dev build can pull it as a plain
+// `implementation` dependency (end users get it from the mod portals). We
+// publish the built jar itself — runtime and repl are merged flat into it and
+// Clojure/nREPL are Jar-in-Jar'd, so the POM declares no dependencies: those
+// are not external artifacts, and the Skein Gradle plugin adds Clojure to a
+// consumer's classpath at the exact version this jar bundles.
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            artifactId = "adapter"
+            artifact(tasks.jar)
+            artifact(tasks.named("sourcesJar"))
+            pom {
+                name = "Skein Adapter"
+                description = "Fabric language adapter for Clojure: boots one shared Clojure " +
+                    "runtime per JVM and resolves Clojure entrypoints, with dev and production nREPL."
+                url = "https://github.com/bondiano/skein"
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://opensource.org/licenses/MIT"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "bondiano"
+                        name = "bondiano"
+                    }
+                }
+                scm {
+                    url = "https://github.com/bondiano/skein"
+                    connection = "scm:git:https://github.com/bondiano/skein.git"
+                    developerConnection = "scm:git:ssh://git@github.com/bondiano/skein.git"
+                }
+            }
+        }
+    }
+    repositories {
+        // Clojars deploy: -PclojarsUsername / -PclojarsPassword (a deploy token)
+        // or CLOJARS_USERNAME / CLOJARS_PASSWORD. `publishToMavenLocal` needs none.
+        maven {
+            name = "Clojars"
+            url = uri("https://repo.clojars.org")
+            credentials {
+                username = (providers.gradleProperty("clojarsUsername")
+                    .orElse(providers.environmentVariable("CLOJARS_USERNAME"))).orNull
+                password = (providers.gradleProperty("clojarsPassword")
+                    .orElse(providers.environmentVariable("CLOJARS_PASSWORD"))).orNull
+            }
+        }
     }
 }

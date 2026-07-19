@@ -26,7 +26,7 @@ skein-adapter = { module = "dev.skein:adapter", version.ref = "skein" }
 # The FP layer (skein.core / skein.events / skein.text / skein.world / …).
 # Ships as Clojure sources; the plugin's AOT bakes the namespaces you require
 # into your jar.
-skein-core-lib = { module = "dev.skein:core-lib", version.ref = "skein" }
+skein-core-lib = { module = "dev.skein:skein", version.ref = "skein" }
 
 [plugins]
 loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
