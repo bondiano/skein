@@ -1,7 +1,7 @@
 # My Mod — a Clojure Fabric mod
 
 A starter template for writing a [Fabric](https://fabricmc.net/) mod in
-Clojure with [Skein](https://github.com/) — REPL-driven modding, hot reload
+Clojure with [Skein](https://github.com/bondiano/skein) — REPL-driven modding, hot reload
 of your logic in a running game, and content declared as data.
 
 Targets **Minecraft 26.1+** (unobfuscated: Mojang's real names, non-remapping
