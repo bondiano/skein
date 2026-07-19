@@ -1,16 +1,24 @@
 (ns skein-example.core
-  "The Skein demo mod: entrypoint + registry DSL + event handlers.
-  Doubles as the integration test in CI; the REPL session lives in the
-  README."
+  "The Skein demo mod, written in the idiomatic FP layer: content is
+  declared as data, event handlers are *pure* functions of the event's
+  data that return a vector of effects, and a command is described as
+  data too. Every handler sits behind a var — redefine it from the REPL
+  and the live game changes on the next call. Doubles as the integration
+  test in CI; the REPL session lives in the README.
+
+  The domain namespaces are required so AOT bakes them into the mod jar:
+  core-lib ships as sources (its jar is not shipped), so a production
+  REPL only finds skein.text / skein.world / skein.player / skein.item if
+  the mod compiled them in."
   (:require [skein.core :as skein]
             [skein.events :as events]
-            ;; Not used by init directly, but AOT bakes the ns into the jar
-            ;; — otherwise (require 'skein.interop) in a production REPL
-            ;; would find no sources (core-lib compiles into the mod, its
-            ;; jar is not shipped).
-            [skein.interop :as interop])
-  (:import (net.minecraft.network.chat Component)
-           (net.minecraft.world.entity.player Player)
+            [skein.command :as command]
+            [skein.world :as world]
+            [skein.text]
+            [skein.player]
+            [skein.item]
+            [skein.interop])
+  (:import (net.minecraft.commands CommandSourceStack)
            (net.minecraft.world.level Level)
            (net.minecraft.world.phys BlockHitResult)))
 
@@ -19,25 +27,52 @@
   entrypoint."
   (atom false))
 
-;;; Event handlers. Vars (#') are registered, not values: re-defing any
-;;; handler from the REPL changes the behaviour of the live game
-;;; immediately.
+;; The content ids as data — shared by the declaration and the handlers,
+;; so there is a single source of truth for a name.
+(def ruby-block :skein_example/ruby_block)
+(def ruby-item  :skein_example/ruby)
+
+;;; Pure handlers (style B). A handler takes the event's data map and
+;;; returns a vector of effects (see skein.fx) — no game types in the
+;;; body, no mutation. Call one with a plain map to test it, redefine it
+;;; from the REPL to change the live game.
 
 (defn greet
-  "Greets a joining player — try redefining this from the REPL."
-  [^Player player]
-  (.sendSystemMessage player
-                      (Component/literal "[skein-example] Welcome! This handler is plain Clojure — redefine it from the REPL.")))
+  "A player finished joining: welcome them. The message is a skein.text
+  hiccup form carried by a :tell effect."
+  [{:keys [player]}]
+  [[:tell player [:aqua "Welcome to Skein! "
+                  [:gold "This handler is pure Clojure"]
+                  " — redefine it from the REPL."]]])
 
 (defn on-ruby-use
-  "Right-click on the ruby block → a message. nil = :pass (the event
-  proceeds)."
-  [^Player player ^Level world _hand ^BlockHitResult hit]
-  (when-not (.isClientSide world)
-    (let [block (.getBlock (.getBlockState world (.getBlockPos hit)))]
-      (when (identical? (skein/block :skein_example/ruby_block) block)
-        (.sendSystemMessage player (Component/literal "Ruby block says: hello from Clojure!")))))
-  nil)
+  "Right-click a block: when it is the ruby block, send a message. Reads
+  the world through a pure query (block-at returns data), then returns an
+  effect; the event still proceeds."
+  [{:keys [player world hit]}]
+  (when (and (not (.isClientSide ^Level world))
+             (= ruby-block (:block (world/block-at world (.getBlockPos ^BlockHitResult hit)))))
+    [[:tell player [:red "Ruby block says: hello from Clojure!"]]]))
+
+;;; A command described as data. The :run handlers are vars (#') so
+;;; redefining one hot-reloads the command's behaviour; they return the
+;;; same kind of effect vector the event handlers do, run through
+;;; skein.fx against the command source (:reply and :give both target it).
+
+(defn give-ruby
+  "The /ruby give handler: hand the executing player a named ruby, or
+  explain that only a player can hold one."
+  [{:keys [source]}]
+  (if-some [player (.getPlayer ^CommandSourceStack source)]
+    [[:give player {:item ruby-item :count 1
+                    :components {:custom-name [:red "Example Ruby"]}}]
+     [:reply [:green "Here is a ruby."]]]
+    [[:reply [:red "Only a player can hold a ruby."]]]))
+
+(defn about-ruby
+  "The /ruby about handler: a bit of flavour text back to the source."
+  [_]
+  [[:reply [:gold "Ruby" [:gray " — the Skein example item, all data."]]]])
 
 (defn init
   "The Fabric `main` entrypoint (see fabric.mod.json). Runs in the phase
@@ -45,13 +80,19 @@
   logic lives in the vars above."
   []
   (skein/register!
-   {:blocks {:skein_example/ruby_block {:strength [3.0 6.0]
-                                        :requires-tool true
-                                        :group :building_blocks}}
-    :items {:skein_example/ruby {:group :ingredients}}})
+   {:blocks {ruby-block {:strength [3.0 6.0]
+                         :requires-tool true
+                         :group :building_blocks}}
+    :items {ruby-item {:group :ingredients}}})
 
-  (events/on! :player/join #'greet)
-  (events/on! :block/use #'on-ruby-use)
+  ;; Pure event handlers — data in, effects out, hot-reloadable vars.
+  (events/on-pure! :player/join #'greet)
+  (events/on-pure! :block/use #'on-ruby-use)
+
+  ;; A command tree as data: /ruby give and /ruby about.
+  (command/def! :ruby
+    {:subs {:give  {:run #'give-ruby}
+            :about {:run #'about-ruby}}})
 
   (reset! initialized? true)
   (println "[skein-example] Hello from Clojure!"))

@@ -25,3 +25,8 @@
 (defprotocol Text
   "Coerce to a chat Component from a string, a hiccup vector or a map."
   (->component [x] "Return a Component."))
+
+(defprotocol Stack
+  "Coerce to an ItemStack from an item id keyword or a data map (see
+  `skein.item`). Implemented in `skein.item`, open for a mod's own types."
+  (->stack [x] "Return an ItemStack."))

@@ -10,8 +10,14 @@ as the integration test in CI:
 - **Registry DSL** — a ruby block and a ruby item registered declaratively
   with `skein.core/register!` (the block gets its `BlockItem` and creative-tab
   entry automatically);
-- **Events** — handlers attached as **vars** with `skein.events/on!`, so they
-  hot-reload from the REPL;
+- **FP layer** — the event handlers are **pure functions** of the event's data
+  that return a vector of effects (`skein.events/on-pure!`), the messages are
+  `skein.text` hiccup, and the world is read through the pure `skein.world`
+  query. Data at the boundaries, effects at the edge;
+- **Commands as data** — `/ruby give` and `/ruby about` are a `skein.command`
+  declaration whose `:run` handlers return effects, exactly like the events;
+- **Vars, not values** — every handler is registered as a `#'var`, so it
+  hot-reloads from the REPL;
 - **Mixin as data** — `defmixin` in
   [`skein-example.mixin`](src/main/clojure/skein_example/mixin.clj) declares
   the injection point *and* the handler in one form. The target is verified
@@ -42,18 +48,22 @@ Connect with anything that speaks nREPL — CIDER, Calva, or plain
 (skein/registered)
 ;; => {:blocks [:skein_example/ruby_block], :items [:skein_example/ruby :skein_example/ruby_block]}
 
-;; Which event handlers are attached?
+;; Which event handlers are attached? (:pure marks a style-B handler.)
 (require '[skein.events :as events])
 (events/handlers)
-;; => [[:block/use #'skein-example.core/on-ruby-use]
-;;     [:player/join #'skein-example.core/greet]]
+;; => [[:block/use #'skein-example.core/on-ruby-use :pure]
+;;     [:player/join #'skein-example.core/greet :pure]]
 
-;; Hot reload: redefine a handler — the very next event uses the new fn.
-;; No re-registration, no restart; the var is registered, not its value.
+;; The handlers are pure data functions — call one with a plain map, no
+;; game required:
 (in-ns 'skein-example.core)
-(defn greet [player]
-  (.sendSystemMessage player (net.minecraft.network.chat.Component/literal
-                              "Patched live from the REPL!")))
+(greet {:player :steve})
+;; => [[:tell :steve [:aqua "Welcome to Skein! " [:gold "..."] " ..."]]]
+
+;; Hot reload: redefine a handler — the very next event runs the new body.
+;; No re-registration, no restart; the var is registered, not its value.
+(defn greet [{:keys [player]}]
+  [[:tell player [:light_purple "Patched live from the REPL!"]]])
 
 ;; The mixin ticks on the real server thread; its logic is the same kind
 ;; of var — watch it, then redefine it:
@@ -63,10 +73,22 @@ Connect with anything that speaks nREPL — CIDER, Calva, or plain
 (defn my-tick [server have-time ci] (swap! mixin/tick-count + 2))
 (alter-var-root #'mixin/server-mixin-tickServer (constantly my-tick))
 
-;; Touch the live world from the REPL — always on the game thread:
-(require '[skein.interop :as interop])
+;; Commands are data too — /ruby give and /ruby about are declared with
+;; skein.command; their :run handlers hot-reload the same way.
+(require '[skein.command :as command])
+(command/defined)
+;; => [:ruby]
+
+;; Touch the live world from the REPL — always on the game thread. The
+;; world is read as data (block-at) and mutated with an explicit effect
+;; (set-block!):
+(require '[skein.interop :as interop]
+         '[skein.world :as world])
 (interop/on-server
-  (mapv #(.getString (.getName %)) (interop/players)))
+  (let [level (.overworld (interop/server))]      ; a ServerLevel
+    (world/set-block! level [0 100 0] {:block :minecraft/gold_block})
+    (world/block-at level [0 100 0])))
+;; => {:block :minecraft/gold_block}
 ```
 
 ## What hot reload covers — and what it does not
@@ -85,9 +107,24 @@ message.
 ## Layout
 
 ```
-src/main/clojure/skein_example/core.clj    entrypoint, content, event handlers
+src/main/clojure/skein_example/core.clj    entrypoint, content, pure event handlers, command
 src/main/clojure/skein_example/mixin.clj   defmixin declaration + handler (hot-reloadable)
 src/main/resources/assets/skein_example/   blockstate, models, lang, textures
 src/test/                                  headless integration tests (clojure.test in a fabric-loader-junit env)
 src/prodSmoke/                             production smoke test (clojure.test): real fabric-server-launch + nREPL
 ```
+
+## Tests
+
+```sh
+./gradlew :example-mod:test           # headless: loader, content, dev REPL
+./gradlew :example-mod:l2ServerTest   # boots a headless dedicated server; FP domain layer (L2/L3)
+```
+
+`test` is the lightweight fabric-loader-junit suite (mod discovery, registry
+DSL, event hot reload, the dev nREPL). `l2ServerTest` boots a real dedicated
+server in-process (a flat world in a scratch dir, server side) and drives the
+FP domain layer — `world` block/entity effects, `item` stack round-trips, and
+the `/ruby` command dispatched through the live Brigadier tree — on the real
+server thread. The production topology is covered separately by
+`prodReplSmokeTest` (opt-in, needs network).

@@ -1,0 +1,20 @@
+;; Developer REPL launchers. These start standalone JVM Clojure nREPLs scoped
+;; to a single module's classpath (deps pinned from gradle/libs.versions.toml,
+;; never duplicated here). Game-facing namespaces come alive only inside a
+;; running instance — use `repl:connect` for those. See bb/skein/dev_repl.clj.
+{:min-bb-version "1.3.0"
+ :paths ["bb"]
+ :tasks
+ {:requires ([skein.dev-repl :as repl])
+
+  repl:core-lib {:doc  "Standalone nREPL for core-lib (mixin pipeline) on :7882"
+                 :task (repl/nrepl! "core-lib")}
+
+  repl:repl     {:doc  "Standalone nREPL for the repl module on :7881"
+                 :task (repl/nrepl! "repl")}
+
+  repl:scripts  {:doc  "Standalone nREPL for skein-scripts on :7883"
+                 :task (repl/nrepl! "scripts")}
+
+  repl:connect  {:doc  "Connect a client to a running game's nREPL (default 127.0.0.1:7888) — bb repl:connect [host] [port]"
+                 :task (apply repl/connect! *command-line-args*)}}}

@@ -53,6 +53,31 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // The live-server L2 suite boots a real dedicated server and runs in its
+    // own forked JVM (l2ServerTest) — keep it out of the lightweight suite.
+    exclude("skein/example/L2ServerTests.class")
+}
+
+// Live-server integration for the FP domain layer (L2): boots a real
+// dedicated server inside the fabric-loader-junit env (server side, a scratch
+// world dir as the working directory) and exercises world/entity effects on
+// the real server thread. Separate task = separate JVM, so the full server
+// boot never disturbs the `test` suite.
+val l2RunDir = layout.buildDirectory.dir("l2-run")
+val l2ServerTest by tasks.registering(Test::class) {
+    description = "Boots a headless dedicated server and runs the L2 domain integration tests."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    include("skein/example/L2ServerTests.class")
+    // A dedicated server needs the server-side Fabric environment.
+    systemProperty("fabric.side", "server")
+    // This suite drives the game directly, not over a REPL — keep the dev
+    // nREPL off so it never contends for a port with a host process.
+    systemProperty("skein.nrepl.enabled", "false")
+    doFirst { l2RunDir.get().asFile.mkdirs() }
+    workingDir = l2RunDir.get().asFile
 }
 
 // Export the resolved runtime classpath (the deobfuscated Minecraft jar + its
