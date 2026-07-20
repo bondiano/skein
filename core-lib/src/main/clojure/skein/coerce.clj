@@ -10,7 +10,14 @@
 
   The forward direction (data -> object) lives here; the reverse (object ->
   data, for reading a snapshot back) lives in the domain namespaces next to
-  the type it reads (`skein.id/id->kw`, `skein.text/component->data`, ...).")
+  the type it reads (`skein.id/id->kw`, `skein.text/component->data`, ...).
+
+  Hot reload: re-evaluating an `extend-protocol`/`extend-type` for a type from
+  the REPL replaces that type's implementation live. But re-evaluating a
+  `defprotocol` resets the protocol and drops *every* extension — so reload this
+  namespace only deliberately, and keep a mod's own coercions in the mod's own
+  namespace (re-eval it to re-register them). Skein's built-in extensions
+  re-register when their domain namespace (`skein.id`, `skein.pos`, ...) reloads.")
 
 (defprotocol Id
   "Coerce to a game Identifier (`net.minecraft.resources.Identifier`)."

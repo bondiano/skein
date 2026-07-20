@@ -20,7 +20,12 @@
   `skein.world` loads, the reply effect when `skein.command` loads, ...), and a
   mod adds its own the same way. A pure handler returns a vector of effects;
   the interpreter runs them with `run-effects!` — inside `on-server`, or
-  directly when already on the game thread (an event or command callback is).")
+  directly when already on the game thread (an event or command callback is).
+
+  Hot reload: re-evaluating a `(defmethod fx! :kind ...)` replaces that effect's
+  handler live — the next effect of that kind runs the new body, no restart. To
+  retire an effect, `(remove-method skein.fx/fx! :kind)`. `known-effects` lists
+  what is currently registered.")
 
 (defn effect-kind
   "The dispatch key of an effect: the keyword head of a `[:kind & args]`

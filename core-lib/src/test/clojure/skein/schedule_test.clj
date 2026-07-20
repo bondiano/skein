@@ -41,3 +41,27 @@
 (deftest a-non-positive-delay-is-rejected
   (reset-state!)
   (is (thrown? clojure.lang.ExceptionInfo (schedule/after 0 #(do)))))
+
+(deftest keyed-reschedule-replaces-instead-of-duplicating
+  (reset-state!)
+  (let [hits (atom 0)]
+    ;; Simulate re-evaluating the same ns three times.
+    (dotimes [_ 3] (schedule/every 2 #(swap! hits inc) {:id :mymod/beat}))
+    (is (= 1 (count (:tasks @state))) "only one timer for the id")
+    (dotimes [_ 6] (run-tick! nil))
+    (is (= 3 @hits) "fires once per period, not once per re-eval")))
+
+(deftest keyed-and-unkeyed-coexist
+  (reset-state!)
+  (schedule/every 2 #(do) {:id :mymod/beat})
+  (schedule/every 2 #(do))
+  (schedule/every 2 #(do))
+  (is (= 3 (count (:tasks @state))) "unkeyed calls each add a distinct timer"))
+
+(deftest keyed-cancel-stops-the-task
+  (reset-state!)
+  (let [hits (atom 0)
+        stop (schedule/after 2 #(swap! hits inc) {:id :mymod/once})]
+    (stop)
+    (dotimes [_ 5] (run-tick! nil))
+    (is (= 0 @hits))))
