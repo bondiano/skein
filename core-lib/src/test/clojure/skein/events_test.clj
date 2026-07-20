@@ -19,3 +19,15 @@
 
 (deftest on-pure-requires-a-var
   (is (thrown? clojure.lang.ExceptionInfo (events/on-pure! :block/use on-use))))
+
+(deftest catalog-documents-every-event
+  (let [cat (events/catalog)]
+    (is (seq cat))
+    (is (every? some? (vals cat)) "every event has documented payload keys")))
+
+(deftest payload-lists-the-data-keys
+  (is (= [:hand :hit :player :world] (sort (events/payload :block/use))))
+  (is (= [:server] (events/payload :server/tick-end))))
+
+(deftest payload-rejects-an-unknown-event
+  (is (thrown? clojure.lang.ExceptionInfo (events/payload :no/such))))

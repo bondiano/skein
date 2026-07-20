@@ -13,6 +13,7 @@
   mod's AOT compilation."
   (:import (net.fabricmc.api EnvType)
            (net.fabricmc.loader.api FabricLoader)
+           (net.minecraft.core RegistryAccess)
            (net.minecraft.server MinecraftServer)
            (net.minecraft.server.level ServerPlayer)))
 
@@ -63,6 +64,23 @@
   (^ServerPlayer [player-name] (player (server) player-name))
   (^ServerPlayer [^MinecraftServer server player-name]
    (.getPlayerByName (.getPlayerList server) player-name)))
+
+(def ^:dynamic *registry-access*
+  "A RegistryAccess for coercions that resolve dynamic-registry ids (enchantments
+  and other datapack-loaded content, which are not in BuiltInRegistries). nil by
+  default; `registry-access` falls back to the running server's. Bind it when a
+  coercion must run without a reachable server (e.g. a client-side context with
+  the integrated server's access)."
+  nil)
+
+(defn registry-access
+  "The RegistryAccess to resolve dynamic-registry ids against: the bound
+  `*registry-access*` if set, otherwise the running dedicated server's, otherwise
+  nil (early startup, or a client with no integrated server yet). Callers that
+  need it should raise an actionable error on nil."
+  ^RegistryAccess []
+  (or *registry-access*
+      (try (.registryAccess (server)) (catch Exception _ nil))))
 
 (defmacro on-game
   "Runs body on the game thread synchronously, returns body's value."

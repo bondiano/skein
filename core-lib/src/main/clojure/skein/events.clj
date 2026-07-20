@@ -32,7 +32,8 @@
     :success, :consume, :fail or a ready-made InteractionResult
   - :block/attack [player world hand pos direction] — result as above
   - :item/use [player world hand] — result as above"
-  (:require [skein.fx :as fx])
+  (:require [skein.fx :as fx]
+            [skein.schemas :as schemas])
   (:import (net.minecraft.world InteractionResult)))
 
 ;;; Results of interaction events
@@ -217,3 +218,20 @@
        (map (fn [entry] (if (= 3 (count entry)) entry (conj entry :fn))))
        (sort-by (comp str first))
        vec))
+
+(defn payload
+  "The keys a pure handler (`on-pure!`) receives in its data map for an event —
+  for the REPL. The values are live game objects; coerce them with the domain
+  namespaces (`entity/snapshot`, `world/block-at`, ...)."
+  [event-key]
+  (or (schemas/payload-keys event-key)
+      (throw (ex-info (str "Unknown event " event-key ". Supported: " (vec (sort (keys events))))
+                      {:event event-key}))))
+
+(defn catalog
+  "A map of every event key -> the payload keys a pure handler receives, for
+  discovery from the REPL."
+  []
+  (into (sorted-map)
+        (map (fn [k] [k (schemas/payload-keys k)]))
+        (keys events)))

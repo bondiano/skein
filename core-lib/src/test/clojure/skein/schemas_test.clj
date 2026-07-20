@@ -24,6 +24,17 @@
 (deftest component-map-is-open-for-mod-components
   (is (nil? (why schemas/item-map {:item :x :components {:mymod/charge 10}}))))
 
+(deftest enchantments-shape-is-id-to-level
+  (testing "valid enchantment map"
+    (is (nil? (why schemas/item-map {:item :x :components {:enchantments {:minecraft/sharpness 5}}}))))
+  (testing "a vector instead of a map names the path and the expectation"
+    (let [msg (why schemas/item-map {:item :x :components {:enchantments [:minecraft/sharpness 5]}})]
+      (is (str/includes? msg "[:components :enchantments]"))
+      (is (str/includes? msg "map of enchantment id -> level"))))
+  (testing "a zero level is rejected"
+    (is (str/includes? (why schemas/item-map {:item :x :components {:enchantments {:minecraft/sharpness 0}}})
+                       "level >= 1"))))
+
 (deftest blockstate-map-validates-props
   (is (nil? (why schemas/blockstate-map {:block :minecraft/oak_stairs :props {:facing :north :half :top}})))
   (is (str/includes? (why schemas/blockstate-map {:block :x :props {:facing [1 2]}})

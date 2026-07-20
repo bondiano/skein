@@ -40,10 +40,14 @@
 
 (def component-map
   "The `:components` of an item map. Open — a mod adds its own components — with
-  the built-in ones (custom-name, damage) shape-checked when present."
+  the built-in ones (custom-name, damage, enchantments) shape-checked when
+  present."
   [:map {:closed false}
    [:custom-name {:optional true} text-form]
-   [:damage {:optional true} [:int {:min 0 :error/message "should be a non-negative damage value"}]]])
+   [:damage {:optional true} [:int {:min 0 :error/message "should be a non-negative damage value"}]]
+   [:enchantments {:optional true}
+    [:map-of {:error/message "should be a map of enchantment id -> level"}
+     id [:int {:min 1 :error/message "should be an enchantment level >= 1"}]]]])
 
 (def item-map
   "An item as data: `{:item id :count n :components {...}}`. A bare id keyword is
@@ -112,6 +116,32 @@
            :error/message "should be a map like {:blocks {...} :items {...}}"}
      [:blocks {:optional true} [:map-of content-id block-decl]]
      [:items {:optional true} [:map-of content-id item-decl]]]))
+
+;;; Event payloads — the shape of the `:data` map a pure handler (events/on-pure!)
+;;; receives per event. The values are live game objects, documented by role
+;;; rather than validated (the layer produces these maps, so there is nothing to
+;;; gate); these schemas exist for REPL introspection and help. `:any` marks a
+;;; live object whose richer coercion is the caller's to do.
+
+(def event-payloads
+  "event-key -> a `[:map ...]` schema of the keys a pure handler receives."
+  {:server/starting   [:map [:server :any]]
+   :server/started    [:map [:server :any]]
+   :server/stopping   [:map [:server :any]]
+   :server/stopped    [:map [:server :any]]
+   :server/tick-start [:map [:server :any]]
+   :server/tick-end   [:map [:server :any]]
+   :player/join       [:map [:player :any]]
+   :player/disconnect [:map [:player :any]]
+   :block/use    [:map [:player :any] [:world :any] [:hand :any] [:hit :any]]
+   :block/attack [:map [:player :any] [:world :any] [:hand :any] [:pos :any] [:direction :any]]
+   :item/use     [:map [:player :any] [:world :any] [:hand :any]]})
+
+(defn payload-keys
+  "The keys of an event's payload map (a sorted vector), or nil if unknown."
+  [event-key]
+  (when-some [schema (event-payloads event-key)]
+    (mapv first (rest schema))))
 
 ;;; Precompiled validators — building a validator is not free, so do it once at
 ;;; load rather than on every boundary call.
