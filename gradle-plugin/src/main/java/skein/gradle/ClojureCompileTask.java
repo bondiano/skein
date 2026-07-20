@@ -24,6 +24,7 @@ import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.work.DisableCachingByDefault;
 
 /**
  * AOT-compiles Clojure namespaces via {@code clojure.lang.Compile} in a
@@ -34,6 +35,7 @@ import org.gradle.api.tasks.PathSensitivity;
  * {@code *warn-on-reflection*} output, and the ns-naming lint checks the
  * namespaces about to be compiled.
  */
+@DisableCachingByDefault(because = "Forked JVM compile with lint side effects; not worth the cache overhead")
 public abstract class ClojureCompileTask extends JavaExec {
 
     /** Valid reflection-lint modes, in a stable order for error messages. */

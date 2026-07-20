@@ -11,6 +11,7 @@ import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 
 /**
  * Registers the generated Skein mixin config in the *processed*
@@ -24,6 +25,7 @@ import org.gradle.api.tasks.TaskAction;
  * another task's output, so it opts out of up-to-date checks entirely —
  * the patch itself is cheap and idempotent.
  */
+@DisableCachingByDefault(because = "Patches another task's output in place; opts out of up-to-date checks")
 public abstract class MixinModJsonTask extends DefaultTask {
 
     /** The processed fabric.mod.json (processResources output). */
