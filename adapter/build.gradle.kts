@@ -51,6 +51,14 @@ dependencies {
     include(libs.clojure.spec)
     include(libs.clojure.core.specs)
     include(libs.nrepl)
+    // The FP layer's boundary validation and logging bridge, provided for the
+    // whole JVM the same way Clojure is. malli needs dynaload at runtime;
+    // tools.logging is pure Clojure. `include` is non-transitive, so malli's
+    // one required dep is listed explicitly (fipp/edamame/test.check load
+    // lazily via dynaload and are not reached by validate/explain/humanize).
+    include(libs.malli)
+    include(libs.dynaload)
+    include(libs.tools.logging)
 
     // Own modules ship flat inside the adapter jar (below) — one Skein entry
     // in the mod list, no per-module JiJ wrappers. They version in lockstep

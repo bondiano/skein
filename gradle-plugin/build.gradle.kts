@@ -45,6 +45,8 @@ val generateVersions = tasks.register<WriteProperties>("generateVersions") {
     property("nrepl", libs.versions.nrepl.get())
     property("tools-deps", libs.versions.tools.deps.get())
     property("malli", libs.versions.malli.get())
+    property("dynaload", libs.versions.dynaload.get())
+    property("tools-logging", libs.versions.tools.logging.get())
 }
 
 sourceSets.main {

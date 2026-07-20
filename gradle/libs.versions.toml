@@ -12,9 +12,18 @@ clojure-core-specs = "0.4.74"
 nrepl = "1.7.0"
 # add-lib in the dev REPL (dev-only classpath, never shipped)
 tools-deps = "0.23.1512"
-# Mixin declaration validation in the compile fork (build-time only,
-# injected by the gradle plugin; never a runtime dependency of mods)
+# Malli powers boundary schema validation for the FP layer (item/blockstate/
+# register!/command/text data) and mixins.edn. It is bundled in the adapter and
+# added to a mod's classpath by the gradle plugin — a runtime dependency of mods.
 malli = "0.17.0"
+# malli's only non-optional runtime dependency (lazy-loads fipp/edamame/test.check
+# through it; those are not needed for validate/explain/humanize, so only these two
+# ship). Bundled in the adapter alongside malli.
+dynaload = "0.3.5"
+# clojure.tools.logging -> the game's log4j/slf4j, so mod handlers log through the
+# server logger with the right mod id. Pure Clojure, no transitive deps; bundled in
+# the adapter.
+tools-logging = "1.3.1"
 # Test-only stand-ins for what the Fabric dev classpath provides at build
 # time (Loom installs the loader's own libraries there): ASM for the mixin
 # codegen, sponge-mixin for the callback classes.
@@ -43,6 +52,8 @@ slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 nrepl = { module = "nrepl:nrepl", version.ref = "nrepl" }
 tools-deps = { module = "org.clojure:tools.deps", version.ref = "tools-deps" }
 malli = { module = "metosin:malli", version.ref = "malli" }
+dynaload = { module = "borkdude:dynaload", version.ref = "dynaload" }
+tools-logging = { module = "org.clojure:tools.logging", version.ref = "tools-logging" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 sponge-mixin = { module = "net.fabricmc:sponge-mixin", version.ref = "sponge-mixin" }
 # Loom as a library — compileOnly in the gradle plugin to configure run configs

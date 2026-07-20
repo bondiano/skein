@@ -4,12 +4,10 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import net.fabricmc.loom.api.LoomGradleExtensionAPI;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.file.Directory;
 import org.gradle.api.plugins.BasePlugin;
 import org.gradle.api.plugins.JavaPlugin;
@@ -44,8 +42,14 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
     private static final String INCLUDE_CONFIGURATION = "include";
 
     /** Provided by the Skein adapter for the whole JVM — never bundled by mods. */
-    private static final Set<String> ADAPTER_PROVIDED =
-            Set.of("org.clojure:clojure", "org.clojure:spec.alpha", "org.clojure:core.specs.alpha", "nrepl:nrepl");
+    private static final Set<String> ADAPTER_PROVIDED = Set.of(
+            "org.clojure:clojure",
+            "org.clojure:spec.alpha",
+            "org.clojure:core.specs.alpha",
+            "nrepl:nrepl",
+            "metosin:malli",
+            "borkdude:dynaload",
+            "org.clojure:tools.logging");
 
     @Override
     public void apply(Project project) {
@@ -92,19 +96,21 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
         extension.getModId().convention(project.provider(() -> findModId(main)));
 
         // The one-line version story: applying the plugin pins the same
-        // Clojure the adapter bundles; mods never spell the version out.
-        project.getDependencies()
-                .add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, "org.clojure:clojure:" + SkeinVersions.clojure());
+        // libraries the adapter bundles, at the exact versions it ships; mods
+        // never spell them out. Clojure is the language; malli (+ its dynaload
+        // dep) backs the FP layer's boundary validation and mixins.edn schema;
+        // tools.logging is the logging bridge. All are adapter-provided at
+        // runtime (JiJ), so they are compile-facing here and dedup in-game.
+        String[] providedCoordinates = {
+            "org.clojure:clojure:" + SkeinVersions.clojure(),
+            "metosin:malli:" + SkeinVersions.malli(),
+            "borkdude:dynaload:" + SkeinVersions.dynaload(),
+            "org.clojure:tools.logging:" + SkeinVersions.toolsLogging(),
+        };
+        for (String coordinate : providedCoordinates) {
+            project.getDependencies().add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, coordinate);
+        }
 
-        // Build-time-only deps of the mixins.edn path (malli validation).
-        // Resolved from the mod's repositories, but only ever when a
-        // mixins.edn exists — the defmixin path needs none of it.
-        Configuration mixinTooling = project.getConfigurations().create("skeinMixinTooling", configuration -> {
-            configuration.setCanBeConsumed(false);
-            configuration.setDescription("Skein build-time mixins.edn validation (malli); never shipped.");
-            configuration.defaultDependencies(dependencies ->
-                    dependencies.add(project.getDependencies().create("metosin:malli:" + SkeinVersions.malli())));
-        });
         Provider<List<File>> mixinEdnFiles = project.provider(() -> main.getResources().getSrcDirs().stream()
                 .map(dir -> new File(dir, "mixins.edn"))
                 .filter(File::isFile)
@@ -125,14 +131,15 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
                             .from(project.provider(() -> main.getResources().getSrcDirs()));
                     // clojure.lang.Compile requires the sources and the compile
                     // path itself on the classpath, plus the mod's own Java
-                    // classes (interop stubs) and the runtime dependencies.
+                    // classes (interop stubs) and the runtime dependencies. malli
+                    // (for mixins.edn validation and the FP layer's schemas) rides
+                    // in on the runtime classpath — the plugin adds it as an
+                    // implementation dependency above.
                     task.classpath(
                             clojureSrc,
                             clojureClasses,
                             main.getOutput().getClassesDirs(),
                             project.getConfigurations().getByName(main.getRuntimeClasspathConfigurationName()));
-                    task.classpath(project.files((Callable<Object>)
-                            () -> task.getMixinEdnFiles().isEmpty() ? project.files() : mixinTooling));
                     task.onlyIf(spec -> {
                         ClojureCompileTask self = (ClojureCompileTask) spec;
                         return !self.getNamespaces().get().isEmpty()

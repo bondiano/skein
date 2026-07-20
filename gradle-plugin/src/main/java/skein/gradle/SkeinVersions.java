@@ -32,6 +32,14 @@ final class SkeinVersions {
         return require("malli");
     }
 
+    static String dynaload() {
+        return require("dynaload");
+    }
+
+    static String toolsLogging() {
+        return require("tools-logging");
+    }
+
     private static String require(String key) {
         String value = PROPERTIES.getProperty(key);
         if (value == null) {

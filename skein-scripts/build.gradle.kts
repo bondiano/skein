@@ -82,6 +82,10 @@ val providedCoordinates = setOf(
     "org.clojure:clojure",
     "org.clojure:spec.alpha",
     "org.clojure:core.specs.alpha",
+    // tools.deps pulls tools.logging transitively; the Skein adapter now bundles
+    // it for the whole JVM (the FP layer's logging bridge), so a copy here would
+    // be the same redundant-shadow problem as clojure — and the plugin bans it.
+    "org.clojure:tools.logging",
     // The game provides the slf4j API — but only the API. jcl-over-slf4j
     // (also org.slf4j) is NOT provided and stays bundled: maven-resolver's
     // http transport needs org.apache.commons.logging.LogFactory from it.
