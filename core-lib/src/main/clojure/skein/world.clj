@@ -37,7 +37,7 @@
   (let [identifier (id/id type-id)
         holder (.get BuiltInRegistries/ENTITY_TYPE identifier)]
     (if (.isPresent holder)
-      (.value (.get holder))
+      (.value ^net.minecraft.core.Holder (.get holder))
       (throw (ex-info (str "No entity type registered for " (pr-str type-id) " (" identifier ")")
                       {:entity-type type-id})))))
 

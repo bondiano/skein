@@ -7,7 +7,8 @@
   A pure read: the non-empty slots turned into the same data maps skein.item
   produces. Accepts a live player or a snapshot."
   (:require [skein.item :as item])
-  (:import (net.minecraft.server.level ServerPlayer)))
+  (:import (net.minecraft.server.level ServerPlayer)
+           (net.minecraft.world.item ItemStack)))
 
 (defn- ->player ^ServerPlayer [x] (if (map? x) (:skein/obj (meta x)) x))
 
@@ -17,7 +18,7 @@
   [player]
   (let [inv (.getInventory (->player player))]
     (into []
-          (comp (map #(.getItem inv (int %)))
-                (remove #(.isEmpty %))
+          (comp (map (fn [i] (.getItem inv (int i))))
+                (remove (fn [^ItemStack s] (.isEmpty s)))
                 (map item/stack->))
           (range (.getContainerSize inv)))))
