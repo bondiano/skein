@@ -53,7 +53,7 @@ dependencies {
     include(libs.nrepl)
 
     // Own modules ship flat inside the adapter jar (below) — one Skein entry
-    // in the mod list, no dev_skein_* wrappers. They version in lockstep
+    // in the mod list, no per-module JiJ wrappers. They version in lockstep
     // with the adapter, so loader-side dedup would buy nothing.
     bundle(project(":runtime"))
     bundle(project(":repl"))

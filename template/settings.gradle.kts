@@ -1,7 +1,7 @@
 pluginManagement {
     repositories {
         maven("https://maven.fabricmc.net/") { name = "Fabric" }
-        // The Skein Gradle plugin (dev.skein.fabric-clojure) is published here.
+        // The Skein Gradle plugin (io.github.bondiano.fabric-clojure) is published here.
         maven("https://repo.clojars.org/") { name = "Clojars" }
         gradlePluginPortal()
         mavenCentral()

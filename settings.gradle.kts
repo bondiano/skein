@@ -5,7 +5,7 @@ pluginManagement {
         mavenCentral()
     }
     // The Skein plugin is an included build: example-mod applies
-    // `dev.skein.fabric-clojure` the same way a published mod would.
+    // `io.github.bondiano.fabric-clojure` the same way a published mod would.
     includeBuild("gradle-plugin")
 }
 

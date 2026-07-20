@@ -69,7 +69,7 @@ tasks.test {
 gradlePlugin {
     plugins {
         create("skein") {
-            id = "dev.skein.fabric-clojure"
+            id = "io.github.bondiano.fabric-clojure"
             implementationClass = "skein.gradle.SkeinGradlePlugin"
             displayName = "Skein — Clojure for Fabric"
             description = "Builds a Fabric mod written in Clojure on top of the non-remapping " +
@@ -79,10 +79,10 @@ gradlePlugin {
     }
 }
 
-// Published to Clojars/Maven so a mod applies `dev.skein.fabric-clojure` via
+// Published to Clojars/Maven so a mod applies `io.github.bondiano.fabric-clojure` via
 // pluginManagement. `maven-publish` + `java-gradle-plugin` create two
 // publications: `pluginMaven` (the implementation jar) and the plugin marker
-// `dev.skein.fabric-clojure:dev.skein.fabric-clojure.gradle.plugin`. Only the
+// `io.github.bondiano.fabric-clojure:io.github.bondiano.fabric-clojure.gradle.plugin`. Only the
 // implementation jar is renamed off the project name; the marker keeps its
 // derived coordinates so plugin resolution works.
 publishing {

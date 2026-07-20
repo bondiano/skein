@@ -14,7 +14,7 @@
 plugins {
     `java-library`
     alias(libs.plugins.loom)
-    id("dev.skein.fabric-clojure")
+    id("io.github.bondiano.fabric-clojure")
 }
 
 java {

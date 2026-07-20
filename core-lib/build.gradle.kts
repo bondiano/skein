@@ -69,7 +69,7 @@ tasks.test {
 }
 
 // The FP API layer mods compile against — the primary Clojure artifact a modder
-// writes `dev.skein/skein` for. Publishes the jar (Clojure sources inside) plus
+// writes `io.github.bondiano/skein` for. Publishes the jar (Clojure sources inside) plus
 // a -sources jar; the group and base version come from the root gradle.properties.
 publishing {
     publications {

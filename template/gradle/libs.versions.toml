@@ -22,12 +22,12 @@ minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
 fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
 fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api" }
 # The library mod the adapter ships as; your mod `depends` on it at runtime.
-skein-adapter = { module = "dev.skein:adapter", version.ref = "skein" }
+skein-adapter = { module = "io.github.bondiano:adapter", version.ref = "skein" }
 # The FP layer (skein.core / skein.events / skein.text / skein.world / …).
 # Ships as Clojure sources; the plugin's AOT bakes the namespaces you require
 # into your jar.
-skein-core-lib = { module = "dev.skein:skein", version.ref = "skein" }
+skein-core-lib = { module = "io.github.bondiano:skein", version.ref = "skein" }
 
 [plugins]
 loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
-skein = { id = "dev.skein.fabric-clojure", version.ref = "skein" }
+skein = { id = "io.github.bondiano.fabric-clojure", version.ref = "skein" }

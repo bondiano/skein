@@ -5,7 +5,7 @@ plugins {
     // classloader scope shared by all subprojects — Loom breaks when two
     // projects load it into different scopes.
     alias(libs.plugins.loom) apply false
-    id("dev.skein.fabric-clojure") apply false
+    id("io.github.bondiano.fabric-clojure") apply false
     alias(libs.plugins.spotless) apply false
 }
 

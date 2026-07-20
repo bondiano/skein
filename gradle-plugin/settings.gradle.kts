@@ -1,6 +1,6 @@
 // The plugin lives in the monorepo as an included build (composite): the root
 // settings.gradle.kts pulls it in via pluginManagement.includeBuild, so
-// example-mod applies `dev.skein.fabric-clojure` exactly like a published mod
+// example-mod applies `io.github.bondiano.fabric-clojure` exactly like a published mod
 // would — the "builds out of the box" exit criterion of M1.
 pluginManagement {
     repositories {
