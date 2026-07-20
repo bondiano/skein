@@ -53,6 +53,20 @@
 (deftest rejects-unknown-argument-type
   (is (thrown? clojure.lang.ExceptionInfo (norm :x {:args [[:a :thing]] :run (fn [_] nil)}))))
 
+(deftest arg-suggests-normalizes
+  (let [node (norm :warp {:args [[:dest :word {:suggests ["home" "spawn"]}]]
+                          :run (fn [_] nil)})]
+    (is (= [{:name "dest" :type :word :suggests ["home" "spawn"]}] (:args node))))
+  (let [v (fn [_] ["a"])
+        node (norm :warp {:args [[:dest :word {:suggests v}]] :run (fn [_] nil)})]
+    (is (= v (:suggests (first (:args node)))))))
+
+(deftest rejects-bad-arg-options
+  (is (thrown? clojure.lang.ExceptionInfo
+               (norm :x {:args [[:a :word "not-a-map"]] :run (fn [_] nil)})))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (norm :x {:args [[:a :word {:suggests 5}]] :run (fn [_] nil)}))))
+
 (deftest rejects-both-args-and-subs
   (is (thrown? clojure.lang.ExceptionInfo
                (norm :x {:args [[:a :int]] :subs {:s {:run (fn [_] nil)}} :run (fn [_] nil)}))))

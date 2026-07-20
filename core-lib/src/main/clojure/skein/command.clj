@@ -8,8 +8,13 @@
                 [[:heal target] [:reply [:green \"healed\"]]])})
 
   A command is a declaration map:
-  - :args       ordered `[name type]` pairs, all required, appended after the
-                command literal (types below);
+  - :args       ordered argument specs, all required, appended after the command
+                literal. A spec is `[name type]` or `[name type opts]`, where
+                opts is a map — currently `{:suggests ...}` for tab-completion:
+                a collection of strings/keywords (a fixed list), or a var/fn
+                `{:source src :remaining partial} -> coll` (a var stays
+                hot-reloadable — it is dereferenced on each completion). Types
+                below;
   - :run        the handler — a function of the argument map (each arg under its
                 keyword name, plus :source, the command source). It returns a
                 vector of effects (run through skein.fx against the source), an
@@ -40,7 +45,8 @@
            (com.mojang.brigadier.arguments BoolArgumentType DoubleArgumentType
                                            IntegerArgumentType StringArgumentType)
            (com.mojang.brigadier.context CommandContext)
-           (net.minecraft.commands Commands CommandSourceStack)
+           (com.mojang.brigadier.suggestion SuggestionProvider)
+           (net.minecraft.commands Commands CommandSourceStack SharedSuggestionProvider)
            (net.minecraft.commands.arguments EntityArgument)
            (net.minecraft.server.permissions Permission$HasCommandLevel PermissionLevel)))
 
@@ -92,10 +98,11 @@
                           {:command command-name :permission perm}))))
 
 (defn- normalize-arg [command-name arg]
-  (when-not (and (vector? arg) (= 2 (count arg)))
-    (throw (ex-info (str "Each :args entry of " command-name " must be a [name type] pair, got: " (pr-str arg))
+  (when-not (and (vector? arg) (<= 2 (count arg) 3))
+    (throw (ex-info (str "Each :args entry of " command-name " must be a [name type] or"
+                         " [name type opts] vector, got: " (pr-str arg))
                     {:command command-name :arg arg})))
-  (let [[nm type] arg]
+  (let [[nm type opts] arg]
     (when-not (or (keyword? nm) (string? nm))
       (throw (ex-info (str "Argument name for " command-name " must be a keyword or string, got: " (pr-str nm))
                       {:command command-name :arg arg})))
@@ -103,7 +110,16 @@
       (throw (ex-info (str "Unknown argument type " (pr-str type) " for " command-name
                            ". Supported: " (vec (sort arg-type-names)))
                       {:command command-name :arg arg :supported (vec (sort arg-type-names))})))
-    {:name (name nm) :type type}))
+    (when (and (some? opts) (not (map? opts)))
+      (throw (ex-info (str "Argument options for " command-name " must be a map like {:suggests ...}, got: " (pr-str opts))
+                      {:command command-name :arg arg})))
+    (let [suggests (:suggests opts)]
+      (when (and (some? suggests) (not (or (coll? suggests) (var? suggests) (ifn? suggests))))
+        (throw (ex-info (str ":suggests for " command-name " must be a collection of strings, or a var/fn"
+                             " returning one, got: " (pr-str suggests))
+                        {:command command-name :arg arg})))
+      (cond-> {:name (name nm) :type type}
+        (some? suggests) (assoc :suggests suggests)))))
 
 (declare normalize-node)
 
@@ -198,12 +214,30 @@
   (reify Command
     (run [_ ctx] (invoke-run path ctx))))
 
+(defn- as-string [s] (if (keyword? s) (name s) (str s)))
+
+(defn- suggestion-provider
+  "A Brigadier SuggestionProvider from a :suggests value: a fixed collection of
+  strings/keywords, or a var/fn called with `{:source :remaining}` returning
+  one. A var is dereferenced per request (the completions stay hot-reloadable)."
+  ^SuggestionProvider [suggests]
+  (reify SuggestionProvider
+    (getSuggestions [_ ctx builder]
+      (let [values (if (coll? suggests)
+                     suggests
+                     (suggests {:source (.getSource ^CommandContext ctx)
+                                :remaining (.getRemaining builder)}))]
+        (SharedSuggestionProvider/suggest ^Iterable (map as-string values) builder)))))
+
 (defn- build-args
   "A chain of required-argument builders for the (non-empty) arg specs; the last
-  one carries the executes handler for the path."
+  one carries the executes handler for the path. An arg's :suggests attaches a
+  tab-completion provider."
   [args path]
   (let [[a & more] args
         builder (Commands/argument (:name a) ((:make (arg-types (:type a)))))]
+    (when-some [suggests (:suggests a)]
+      (.suggests builder (suggestion-provider suggests)))
     (if (seq more)
       (.then builder (build-args more path))
       (.executes builder (executes-command path)))
