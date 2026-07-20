@@ -14,6 +14,8 @@
   live game types only at this boundary."
   (:require [skein.coerce :as coerce]
             [skein.id :as id]
+            [skein.schema :as schema]
+            [skein.schemas :as schemas]
             [skein.text :as text])
   (:import (net.minecraft.core.component DataComponents)
            (net.minecraft.core.registries BuiltInRegistries)
@@ -23,7 +25,7 @@
   (let [identifier (id/id item-id)
         holder (.get BuiltInRegistries/ITEM identifier)]
     (if (.isPresent holder)
-      (.value (.get holder))
+      (.value ^net.minecraft.core.Holder (.get holder))
       (throw (ex-info (str "No item registered for " (pr-str item-id) " (" identifier ")")
                       {:item item-id})))))
 
@@ -58,9 +60,13 @@
   (->stack [k] (ItemStack. (item-by-id k) 1))
 
   clojure.lang.IPersistentMap
-  (->stack [{:keys [item count components]}]
-    (doto (ItemStack. (item-by-id item) (int (or count 1)))
-      (apply-components! components)))
+  (->stack [m]
+    (schema/guarded
+     schemas/item-map m "item map"
+     (fn []
+       (let [{:keys [item count components]} m]
+         (doto (ItemStack. (item-by-id item) (int (or count 1)))
+           (apply-components! components))))))
 
   ItemStack
   (->stack [s] s))

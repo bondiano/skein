@@ -1,11 +1,12 @@
 (ns skein.mixin.schema
   "Malli schema for authored mixin declarations (the mixins.edn shape).
 
-  Build-time only: the Skein Gradle plugin puts malli on the compile
-  classpath when a mixins.edn exists — never require this namespace
-  from mod code. defmixin declarations get equivalent (and earlier)
-  structural checks from the macro itself; this schema is the source of
-  truth for the data path."
+  Build-time only: this validates the authored mixins.edn during the
+  compile fork — never require it from mod code (the shared boundary
+  helpers in `skein.schema` are the ones mods use). defmixin declarations
+  get equivalent (and earlier) structural checks from the macro itself;
+  this schema is the source of truth for the data path. malli is on the
+  classpath for the whole FP layer now, not just this path."
   (:require [clojure.pprint :as pprint]
             [malli.core :as m]
             [malli.error :as me]))

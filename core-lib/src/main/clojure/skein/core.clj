@@ -27,6 +27,8 @@
   `:item? false`). `:group` puts the item into a creative tab (requires
   fabric-api; vanilla tabs are `:ingredients`, `:building_blocks`, ...
   — the default namespace is minecraft)."
+  (:require [skein.schema :as schema]
+            [skein.schemas :as schemas])
   (:import (net.minecraft.core Registry)
            (net.minecraft.core.registries BuiltInRegistries Registries)
            (net.minecraft.resources Identifier ResourceKey)
@@ -59,21 +61,6 @@
   (if (namespace group)
     (Identifier/fromNamespaceAndPath (namespace group) (name group))
     (Identifier/fromNamespaceAndPath "minecraft" (name group))))
-
-;;; Declaration validation
-
-(def ^:private block-keys #{:strength :hardness :resistance :light-level :friction
-                            :no-collision :requires-tool :instabreak :item? :group})
-(def ^:private item-keys #{:stacks-to :durability :fire-resistant :rarity :group})
-
-(defn- validate-keys! [id decl allowed what]
-  (when-not (map? decl)
-    (throw (ex-info (str what " declaration for " id " must be a map, got: " (pr-str decl))
-                    {:id id :declaration decl})))
-  (when-some [unknown (seq (remove allowed (keys decl)))]
-    (throw (ex-info (str "Unknown " what " keys " (vec unknown) " for " id
-                         ". Supported: " (vec (sort allowed)))
-                    {:id id :unknown (vec unknown) :supported (vec (sort allowed))}))))
 
 ;;; Properties from data
 
@@ -196,7 +183,6 @@
         value))))
 
 (defn- flush-block! [id decl]
-  (validate-keys! id decl block-keys "block")
   (flush-entry!
    :blocks id decl
    (fn []
@@ -216,7 +202,6 @@
        block))))
 
 (defn- flush-item! [id decl]
-  (validate-keys! id decl item-keys "item")
   (flush-entry!
    :items id decl
    (fn []
@@ -232,12 +217,10 @@
   ({:blocks {id Block} :items {id Item}}), or :skein/aot-compiling during
   AOT compilation."
   [content]
-  (when-not (map? content)
-    (throw (ex-info (str "register! expects a map like {:blocks {...} :items {...}}, got: " (pr-str content))
-                    {:content content})))
-  (when-some [unknown (seq (remove #{:blocks :items} (keys content)))]
-    (throw (ex-info (str "Unknown register! sections " (vec unknown) ". Supported: [:blocks :items]")
-                    {:unknown (vec unknown)})))
+  ;; Validate the whole declaration against the schema first — this runs even
+  ;; during AOT compilation (below), so an id typo or a bad property is a build
+  ;; error, not a surprise at game start.
+  (schema/validate! schemas/register-decl content "register! declaration")
   (if *compile-files*
     :skein/aot-compiling
     {:blocks (into {} (keep (fn [[id decl]] (when-some [b (flush-block! id decl)] [id b])))

@@ -10,7 +10,9 @@
   boolean for a boolean property (`waterlogged`), or an integer for a numeric
   one. The whole conversion is pure once the block registries exist — no world
   or server is involved."
-  (:require [skein.id :as id])
+  (:require [skein.id :as id]
+            [skein.schema :as schema]
+            [skein.schemas :as schemas])
   (:import (net.minecraft.core.registries BuiltInRegistries)
            (net.minecraft.world.level.block Block)
            (net.minecraft.world.level.block.state BlockState)
@@ -20,7 +22,7 @@
   (let [identifier (id/id block-id)
         holder (.get BuiltInRegistries/BLOCK identifier)]
     (if (.isPresent holder)
-      (.value (.get holder))
+      (.value ^net.minecraft.core.Holder (.get holder))
       (throw (ex-info (str "No block registered for " (pr-str block-id) " (" identifier ")")
                       {:block block-id})))))
 
@@ -48,19 +50,22 @@
     (keyword? x) (.defaultBlockState (block-by-id x))
 
     (map? x)
-    (let [{:keys [block props]} x
-          b (block-by-id block)
-          definition (.getStateDefinition b)]
-      (reduce-kv
-       (fn [^BlockState state prop-key v]
-         (let [prop (.getProperty definition (name prop-key))]
-           (when (nil? prop)
-             (throw (ex-info (str "Unknown property " prop-key " for block " block
-                                  " — it has " (mapv #(keyword (.getName ^Property %)) (.getProperties (.defaultBlockState b))))
-                             {:block block :property prop-key})))
-           (set-prop state prop v)))
-       (.defaultBlockState b)
-       (or props {})))
+    (schema/guarded
+     schemas/blockstate-map x "blockstate map"
+     (fn []
+       (let [{:keys [block props]} x
+             b (block-by-id block)
+             definition (.getStateDefinition b)]
+         (reduce-kv
+          (fn [^BlockState state prop-key v]
+            (let [prop (.getProperty definition (name prop-key))]
+              (when (nil? prop)
+                (throw (ex-info (str "Unknown property " prop-key " for block " block
+                                     " — it has " (mapv #(keyword (.getName ^Property %)) (.getProperties (.defaultBlockState b))))
+                                {:block block :property prop-key})))
+              (set-prop state prop v)))
+          (.defaultBlockState b)
+          (or props {})))))
 
     :else (throw (ex-info (str "Cannot coerce to a BlockState: " (pr-str x)
                                " — expected a BlockState, an id keyword, or a {:block :props} map")
