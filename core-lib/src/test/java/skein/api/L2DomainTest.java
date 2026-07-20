@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class L2DomainTest {
 
     private static final List<String> NAMESPACES =
-            List.of("skein.block-test", "skein.schedule-test", "skein.l2-wiring-test");
+            List.of("skein.block-test", "skein.schedule-test", "skein.l2-wiring-test", "skein.inspect-test");
 
     @Test
     void clojureTestSuitePasses() {
