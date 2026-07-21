@@ -37,6 +37,9 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
     private static final String CLOJURE_SOURCE_DIR = "src/main/clojure";
     private static final String CLOJURE_CLASSES_DIR = "classes/clojure/main";
     private static final String COMPILE_CLOJURE_TASK = "compileClojure";
+    private static final String DATAGEN_RESOURCES_DIR = "generated/skein/resources";
+    private static final String DATAGEN_TASK = "skeinDatagen";
+    private static final String DATA_FILE = "skein-data.edn";
 
     /** Loom's Jar-in-Jar configuration. */
     private static final String INCLUDE_CONFIGURATION = "include";
@@ -152,6 +155,56 @@ public final class SkeinGradlePlugin implements Plugin<Project> {
         main.getOutput().dir(Map.of("builtBy", compileClojure), clojureClasses);
 
         registerMixinConfig(project, extension, compileClojure, clojureClasses);
+        registerDatagen(project, extension, main, clojureSrc);
+    }
+
+    /**
+     * Wires the datagen pipeline: a forked JVM turns {@code skein-data.edn}
+     * into resources under a generated directory, which is registered as a
+     * main source-set output so {@code jar} and dev runs pack them with no
+     * author wiring. Runs only when a {@code skein-data.edn} exists.
+     */
+    private void registerDatagen(
+            Project project,
+            SkeinExtension extension,
+            SourceSet main,
+            Directory clojureSrc) {
+        Provider<Directory> generatedResources =
+                project.getLayout().getBuildDirectory().dir(DATAGEN_RESOURCES_DIR);
+
+        Provider<List<File>> dataFiles = project.provider(() -> main.getResources().getSrcDirs().stream()
+                .map(dir -> new File(dir, DATA_FILE))
+                .filter(File::isFile)
+                .toList());
+
+        TaskProvider<SkeinDatagenTask> datagen = project.getTasks()
+                .register(DATAGEN_TASK, SkeinDatagenTask.class, task -> {
+                    task.setGroup(BasePlugin.BUILD_GROUP);
+                    task.setDescription("Generates mod resources from skein-data.edn (Skein).");
+                    task.getClojureSources().from(clojureSrc);
+                    task.getDataFiles().from(dataFiles);
+                    task.getNamespaces().set(extension.getAotNamespaces());
+                    task.getModId().set(extension.getModId());
+                    task.getResourceDirs().from(project.provider(() -> main.getResources().getSrcDirs()));
+                    task.getOutputDirectory().set(generatedResources);
+                    // The mod's Clojure source (loaded to gather its content
+                    // ids), the mod's Java classes (interop stubs its
+                    // namespaces may touch) and the runtime dependencies (game
+                    // + core-lib + malli). The datagen fork loads sources, so
+                    // it needs neither the AOT compile path nor a dependency on
+                    // compileClojure; getClassesDirs() carries its own build
+                    // dependency and excludes the generated output dirs.
+                    task.classpath(
+                            clojureSrc,
+                            main.getOutput().getClassesDirs(),
+                            project.getConfigurations().getByName(main.getRuntimeClasspathConfigurationName()));
+                    task.onlyIf(spec -> !((SkeinDatagenTask) spec).getDataFiles().isEmpty());
+                });
+
+        // Pack the generated resources into the jar and make them available to
+        // dev runs and tests (which consume the main source-set output).
+        main.getOutput().dir(Map.of("builtBy", datagen), generatedResources);
+        project.getTasks().named(JavaPlugin.CLASSES_TASK_NAME).configure(classes -> classes.dependsOn(datagen));
     }
 
     /**

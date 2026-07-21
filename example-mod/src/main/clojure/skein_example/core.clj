@@ -32,6 +32,17 @@
 (def ruby-block :skein_example/ruby_block)
 (def ruby-item  :skein_example/ruby)
 
+;; Content is declared at the top level so it registers when the entrypoint ns
+;; loads (the registries-open phase), and — being data — the build sees it too:
+;; AOT validates the declaration (a typo is a build error) and the datagen fork
+;; reads the ids to check skein-data.edn against them. Logic (events, commands)
+;; stays in `init`, where a running server exists.
+(skein/register!
+ {:blocks {ruby-block {:strength [3.0 6.0]
+                       :requires-tool true
+                       :group :building_blocks}}
+  :items {ruby-item {:group :ingredients}}})
+
 ;;; Pure handlers (style B). A handler takes the event's data map and
 ;;; returns a vector of effects (see skein.fx) — no game types in the
 ;;; body, no mutation. Call one with a plain map to test it, redefine it
@@ -75,16 +86,10 @@
   [[:reply [:gold "Ruby" [:gray " — the Skein example item, all data."]]]])
 
 (defn init
-  "The Fabric `main` entrypoint (see fabric.mod.json). Runs in the phase
-  where the registries are still open: content is declared here, the
-  logic lives in the vars above."
+  "The Fabric `main` entrypoint (see fabric.mod.json). Content is declared at
+  the top level (above); here we wire the logic — pure event handlers and a
+  command tree, all behind hot-reloadable vars."
   []
-  (skein/register!
-   {:blocks {ruby-block {:strength [3.0 6.0]
-                         :requires-tool true
-                         :group :building_blocks}}
-    :items {ruby-item {:group :ingredients}}})
-
   ;; Pure event handlers — data in, effects out, hot-reloadable vars.
   (events/on-pure! :player/join #'greet)
   (events/on-pure! :block/use #'on-ruby-use)

@@ -39,6 +39,34 @@
 (defonce ^:private ^org.slf4j.Logger logger
   (org.slf4j.LoggerFactory/getLogger "skein"))
 
+(def ^:dynamic *collect-only*
+  "When true, `register!` records the declaration's content ids into a pure
+  registry and performs no game registration. The build-time datagen fork
+  binds it and loads the mod's namespaces to learn the mod's own block/item
+  ids (for its id checks) without booting a server or freezing registries."
+  false)
+
+(defonce ^:private declared
+  ;; The content ids seen under *collect-only*: {:blocks #{ids} :items #{ids}}.
+  ;; Items include the auto BlockItem of each block (unless :item? false).
+  (atom {:blocks #{} :items #{}}))
+
+(defn declared-content
+  "The content ids `register!` has recorded under `*collect-only*`
+  ({:blocks #{ids} :items #{ids}}), for build-time datagen id checks. Items
+  include the auto BlockItem of each declared block."
+  []
+  @declared)
+
+(defn- record-declared! [content]
+  (swap! declared
+         (fn [state]
+           (-> state
+               (update :blocks into (keys (:blocks content)))
+               ;; a block also registers a BlockItem of the same id unless :item? false
+               (update :items into (keep (fn [[id decl]] (when (:item? decl true) id)) (:blocks content)))
+               (update :items into (keys (:items content)))))))
+
 (defonce ^:private state
   ;; :declarations [kind id] -> declaration, :registered [kind id] -> game
   ;; object, :groups tab -> [item-id ...], :group-listeners #{tab}.
@@ -214,15 +242,18 @@
 (defn register!
   "Registers content from a declarative description (see the ns docstring).
   Returns a map of the content registered by this call
-  ({:blocks {id Block} :items {id Item}}), or :skein/aot-compiling during
-  AOT compilation."
+  ({:blocks {id Block} :items {id Item}}), :skein/aot-compiling during
+  AOT compilation, or :skein/collecting under `*collect-only*` (build-time
+  datagen)."
   [content]
   ;; Validate the whole declaration against the schema first — this runs even
   ;; during AOT compilation (below), so an id typo or a bad property is a build
   ;; error, not a surprise at game start.
   (schema/validate! schemas/register-decl content "register! declaration")
-  (if *compile-files*
-    :skein/aot-compiling
+  (cond
+    *collect-only* (do (record-declared! content) :skein/collecting)
+    *compile-files* :skein/aot-compiling
+    :else
     {:blocks (into {} (keep (fn [[id decl]] (when-some [b (flush-block! id decl)] [id b])))
                    (:blocks content))
      :items (into {} (keep (fn [[id decl]] (when-some [i (flush-item! id decl)] [id i])))

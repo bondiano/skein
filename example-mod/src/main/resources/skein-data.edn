@@ -1,0 +1,48 @@
+;; Data-driven content for the Skein example mod. The Skein Gradle plugin's
+;; datagen step turns this into assets/data JSON before `jar`, and checks every
+;; id below against the real game registries and the mod's own registered
+;; content — a typo is a build error with a "did you mean" list. The block and
+;; item themselves are registered in code (skein-example.core); everything that
+;; describes or references them lives here as data.
+{:lang
+ {:en_us {"block.skein_example.ruby_block" "Ruby Block"
+          "item.skein_example.ruby" "Ruby"
+          "advancement.skein_example.root.title" "Hold a Ruby"
+          "advancement.skein_example.root.description" "Obtain a ruby from the Skein example mod"}
+  :ru_ru {"block.skein_example.ruby_block" "Рубиновый блок"
+          "item.skein_example.ruby" "Рубин"
+          "advancement.skein_example.root.title" "Заполучить рубин"
+          "advancement.skein_example.root.description" "Получите рубин из примера мода Skein"}}
+
+ :tags
+ {:block {:minecraft/mineable/pickaxe [:skein_example/ruby_block]
+          :minecraft/needs_iron_tool  [:skein_example/ruby_block]}}
+
+ :recipes
+ {;; nine rubies -> a ruby block
+  :skein_example/ruby_block {:type :shaped
+                             :category :building
+                             :pattern ["###" "###" "###"]
+                             :key {\# :skein_example/ruby}
+                             :result :skein_example/ruby_block}
+  ;; a ruby block -> nine rubies
+  :skein_example/ruby {:type :shapeless
+                       :ingredients [:skein_example/ruby_block]
+                       :result {:id :skein_example/ruby :count 9}}}
+
+ :loot
+ {;; the ruby block drops itself
+  :skein_example/ruby_block {:type :block}}
+
+ :advancements
+ {:skein_example/root
+  {:type :raw
+   :json {:display {:icon {:id "skein_example:ruby"}
+                    :title {:translate "advancement.skein_example.root.title"}
+                    :description {:translate "advancement.skein_example.root.description"}
+                    :frame "task"
+                    :show_toast true
+                    :announce_to_chat false}
+          :criteria {:has_ruby {:trigger "minecraft:inventory_changed"
+                                :conditions {:items [{:items ["skein_example:ruby"]}]}}}
+          :requirements [["has_ruby"]]}}}}
