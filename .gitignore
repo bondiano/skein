@@ -17,6 +17,7 @@ bin/
 .clj-kondo/.cache/
 .lsp/.cache/
 .nrepl-port
+.nrepl-session-*
 
 # Fabric dev runs
 run/

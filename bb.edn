@@ -5,7 +5,19 @@
 {:min-bb-version "1.3.0"
  :paths ["bb"]
  :tasks
- {:requires ([skein.dev-repl :as repl])
+ {:requires ([skein.dev-repl :as repl]
+             [skein.nrepl-eval :as nre])
+
+  nrepl:ports {:doc  "List live nREPL servers (game :7888, modules :7881-7883)"
+               :task (nre/-main "--discover-ports")}
+
+  nrepl:eval  {:doc  "Eval a form in a running nREPL — bb nrepl:eval [-p PORT] \"(code)\" (auto-picks the only live port; state persists between calls)"
+               :task (apply nre/-main *command-line-args*)}
+
+  nrepl:load  {:doc  "Load a .clj file into a running nREPL — bb nrepl:load [-p PORT] path/to/file.clj"
+               :task (let [args (vec *command-line-args*)]
+                       (apply nre/-main "--file" (last args) (butlast args)))}
+
 
   repl:core-lib {:doc  "Standalone nREPL for core-lib (mixin pipeline) on :7882"
                  :task (repl/nrepl! "core-lib")}
