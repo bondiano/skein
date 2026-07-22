@@ -76,8 +76,10 @@ class L2ServerTests {
     Collection<DynamicNode> l2Suites() {
         skein.runtime.ClojureRuntime.get().requireNamespace("skein-example-test.harness");
         skein.runtime.ClojureRuntime.get().requireNamespace("skein-example-test.l2-test");
+        skein.runtime.ClojureRuntime.get().requireNamespace("skein-example-test.state-test");
         RT.var("skein-example-test.l2-test", "set-server!").invoke(server);
-        return (Collection<DynamicNode>)
-                RT.var("skein-example-test.harness", "suites").invoke(List.of("skein-example-test.l2-test"));
+        RT.var("skein-example-test.state-test", "set-server!").invoke(server);
+        return (Collection<DynamicNode>) RT.var("skein-example-test.harness", "suites")
+                .invoke(List.of("skein-example-test.l2-test", "skein-example-test.state-test"));
     }
 }

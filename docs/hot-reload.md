@@ -53,6 +53,31 @@ startup phase, *before* the freeze. Once the game is up:
   constructor, so this is caught early with a useful message rather than a raw
   exception.)
 
+## Why your data is not lost: state lives outside the namespace
+
+Reloading a namespace re-evaluates its top-level forms, so a plain
+`(def counters (atom {}))` would throw the old map away every time you reload —
+the classic way to lose a session's worth of play while iterating.
+
+`skein.state/defstate` avoids that: the atom belongs to a registry keyed by the
+state's id, and re-evaluating the form looks it up instead of creating a new one.
+
+```clojure
+(state/defstate scores
+  {:id :mymod/scores :schema [:map-of :uuid :int] :init {} :persist? true})
+```
+
+Reload the namespace as often as you like — the handlers around `scores` become
+the new code, the numbers inside it stay. With `:persist? true` the value is also
+written into the world save, so it survives a server restart, and data that
+belongs to one entity, chunk or block entity is attached to that thing instead
+(`skein.attach`), where the game saves and unloads it with its owner.
+
+The line here is the same one as everywhere else: **logic reloads, data
+persists.** An attachment's *declaration* is content-like — its shape is fixed
+for the run, and changing it needs a restart — but the attached values, like
+state, are untouched by a reload.
+
 ## What this means day to day
 
 | You change… | Reloads live? |
@@ -61,6 +86,8 @@ startup phase, *before* the freeze. Once the game is up:
 | A helper fn any handler calls | ✅ yes — next call |
 | A scheduled-timer callback | ✅ yes — next tick it fires |
 | The message/text a handler produces | ✅ yes (it's just handler logic) |
+| The value in a `defstate` atom or an attachment | ✅ kept — a reload does not touch it |
+| The shape (`:schema`) of an attachment | ❌ no — restart |
 | Adding a new block, item, or other registry entry | ❌ no — restart |
 | The properties of an already-registered block | ❌ no — restart |
 

@@ -14,6 +14,8 @@
             [skein.events :as events]
             [skein.command :as command]
             [skein.world :as world]
+            [skein.attach :as attach]
+            [skein.state :as state]
             [skein.text]
             [skein.player]
             [skein.item]
@@ -43,6 +45,20 @@
                        :group :building_blocks}}
   :items {ruby-item {:group :ingredients}}})
 
+;; State the mod keeps. The world-wide tally is a `defstate`: an atom that
+;; survives a REPL reload of this namespace and is written into the world save.
+;; The per-player tally is an attachment — it belongs to one player, so the game
+;; saves it in that player's own data and carries it through a respawn.
+(state/defstate ruby-taps
+  {:id :skein_example/ruby_taps
+   :schema :int
+   :init 0
+   :persist? true})
+
+(def player-taps
+  "The id of the per-player tally attached to each player."
+  :skein_example/player_ruby_taps)
+
 ;;; Pure handlers (style B). A handler takes the event's data map and
 ;;; returns a vector of effects (see skein.fx) — no game types in the
 ;;; body, no mutation. Call one with a plain map to test it, redefine it
@@ -57,13 +73,19 @@
                   " — redefine it from the REPL."]]])
 
 (defn on-ruby-use
-  "Right-click a block: when it is the ruby block, send a message. Reads
-  the world through a pure query (block-at returns data), then returns an
-  effect; the event still proceeds."
+  "Right-click a block: when it is the ruby block, count the tap and say so.
+  Reads the world and both tallies through pure queries, then returns the
+  effects — the counters are updated as data (`:swap-state`, `:attach`), so the
+  handler stays a plain data -> effects function."
   [{:keys [player world hit]}]
   (when (and (not (.isClientSide ^Level world))
              (= ruby-block (:block (world/block-at world (.getBlockPos ^BlockHitResult hit)))))
-    [[:tell player [:red "Ruby block says: hello from Clojure!"]]]))
+    (let [mine (inc (attach/attached player player-taps))
+          here (inc @ruby-taps)]
+      [[:swap-state :skein_example/ruby_taps inc]
+       [:attach player player-taps mine]
+       [:tell player [:red "Ruby block says: hello from Clojure! "
+                      [:gray (str "You have tapped it " mine "×, this world " here "×.")]]]])))
 
 ;;; A command described as data. The :run handlers are vars (#') so
 ;;; redefining one hot-reloads the command's behaviour; they return the
@@ -81,15 +103,26 @@
     [[:reply [:red "Only a player can hold a ruby."]]]))
 
 (defn about-ruby
-  "The /ruby about handler: a bit of flavour text back to the source."
-  [_]
-  [[:reply [:gold "Ruby" [:gray " — the Skein example item, all data."]]]])
+  "The /ruby about handler: flavour text plus what the mod currently holds —
+  the world tally from the saved state, the caller's own from their attachment."
+  [{:keys [source]}]
+  (let [mine (some-> (.getPlayer ^CommandSourceStack source) (attach/attached player-taps))]
+    [[:reply [:gold "Ruby" [:gray " — the Skein example item, all data."]
+              [:white (str " Tapped " @ruby-taps "× in this world"
+                           (when mine (str ", " mine "× by you"))
+                           ".")]]]]))
 
 (defn init
   "The Fabric `main` entrypoint (see fabric.mod.json). Content is declared at
   the top level (above); here we wire the logic — pure event handlers and a
   command tree, all behind hot-reloadable vars."
   []
+  ;; The per-player tally. Attachment types are registered against the game, so
+  ;; they are declared here rather than at the top level (where AOT would see
+  ;; them); the world-wide `defstate` above needs no such care.
+  (attach/define! player-taps
+    {:schema :int :init 0 :persist? true :copy-on-death? true})
+
   ;; Pure event handlers — data in, effects out, hot-reloadable vars.
   (events/on-pure! :player/join #'greet)
   (events/on-pure! :block/use #'on-ruby-use)

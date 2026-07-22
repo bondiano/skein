@@ -89,7 +89,29 @@ That loop — edit, re-eval, watch the live game change — is the whole point o
 Skein. See [Hot reload](hot-reload.md) for exactly what it does and does not
 cover.
 
-## 6. Build a jar
+## 6. Keep something between sessions
+
+Sooner or later the mod needs to remember something. Declare it once and it both
+survives your REPL reloads and goes into the world save:
+
+```clojure
+(require '[skein.state :as state])
+
+(state/defstate scores
+  {:id :mymod/scores
+   :schema [:map-of :uuid :int]      ; also how it is written to disk
+   :init {}
+   :persist? true})
+
+(swap! scores update player-uuid (fnil inc 0))
+```
+
+`scores` is a plain atom of plain data. Reload the namespace as often as you
+like — the value stays; the world save keeps it across restarts. Data that
+belongs to one entity, chunk or block entity goes on that thing instead, with
+`skein.attach`, so the game saves and unloads it with its owner.
+
+## 7. Build a jar
 
 ```sh
 ./gradlew build
