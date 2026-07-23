@@ -15,6 +15,7 @@
             [skein.command :as command]
             [skein.world :as world]
             [skein.attach :as attach]
+            [skein.net :as net]
             [skein.state :as state]
             [skein.text]
             [skein.player]
@@ -59,6 +60,17 @@
   "The id of the per-player tally attached to each player."
   :skein_example/player_ruby_taps)
 
+(def taps-packet
+  "The id of the packet that carries both tallies to the client."
+  :skein_example/ruby_taps_update)
+
+(defn declare-packets!
+  "Declares the mod's packets. Called from both entrypoints — a declaration is
+  idempotent, so neither side depends on the other having run first."
+  []
+  (net/define! taps-packet
+    {:schema [:map [:mine :int] [:world :int]] :dir :s2c}))
+
 ;;; Pure handlers (style B). A handler takes the event's data map and
 ;;; returns a vector of effects (see skein.fx) — no game types in the
 ;;; body, no mutation. Call one with a plain map to test it, redefine it
@@ -84,6 +96,9 @@
           here (inc @ruby-taps)]
       [[:swap-state :skein_example/ruby_taps inc]
        [:attach player player-taps mine]
+       ;; The same numbers as data on the wire: the client gets them as a map
+       ;; and decides how to show them (see skein-example.client).
+       [:send-packet player taps-packet {:mine mine :world here}]
        [:tell player [:red "Ruby block says: hello from Clojure! "
                       [:gray (str "You have tapped it " mine "×, this world " here "×.")]]]])))
 
@@ -122,6 +137,10 @@
   ;; them); the world-wide `defstate` above needs no such care.
   (attach/define! player-taps
     {:schema :int :init 0 :persist? true :copy-on-death? true})
+
+  ;; The packet the tallies travel on. Declared here and again from the client
+  ;; entrypoint, so neither side has to run first.
+  (declare-packets!)
 
   ;; Pure event handlers — data in, effects out, hot-reloadable vars.
   (events/on-pure! :player/join #'greet)

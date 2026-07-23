@@ -30,6 +30,8 @@ Everything you attach through the API layer follows this rule:
 - **Mixin handlers** — a `defmixin` body is compiled to a var the generated
   mixin calls.
 - **Scheduled timers** — `skein.schedule` callbacks are vars too.
+- **Packet handlers** — `skein.net/on!` stores the var, and the receiver the
+  game holds reads it on every packet.
 
 So all of your behavior — how the mod reacts, computes, and mutates — is live.
 
@@ -87,7 +89,8 @@ state, are untouched by a reload.
 | A scheduled-timer callback | ✅ yes — next tick it fires |
 | The message/text a handler produces | ✅ yes (it's just handler logic) |
 | The value in a `defstate` atom or an attachment | ✅ kept — a reload does not touch it |
-| The shape (`:schema`) of an attachment | ❌ no — restart |
+| What a packet handler does with a payload | ✅ yes — next packet |
+| The shape (`:schema`) of an attachment or a packet | ❌ no — restart |
 | Adding a new block, item, or other registry entry | ❌ no — restart |
 | The properties of an already-registered block | ❌ no — restart |
 

@@ -32,6 +32,19 @@
 
 (defn- overworld [] (.overworld (server)))
 
+(defn- eventually
+  "The value of `f` (run on the server thread) once `accept?` takes it, polling
+  until a deadline. Some game state only settles on the *next* tick — a freshly
+  spawned entity joins the level's entity list there, not inside the spawn call
+  — so reading it back in the very next submitted task is a race."
+  [accept? f]
+  (let [deadline (+ (System/currentTimeMillis) 5000)]
+    (loop []
+      (let [value (on-server-thread f)]
+        (if (or (accept? value) (> (System/currentTimeMillis) deadline))
+          value
+          (do (Thread/sleep 50) (recur)))))))
+
 ;;; A block round-trip on the live world: set it, read it back as data.
 
 (deftest set-block-and-read-it-back
@@ -53,14 +66,19 @@
 
 (deftest spawn-returns-a-snapshot-and-shows-in-a-query
   (let [level (overworld)
+        ;; A headless server has no players, so nothing keeps a chunk loaded:
+        ;; spawning into an unloaded chunk gives back an entity the world never
+        ;; tracks. Load the chunk first, the way a nearby player would.
+        _ (on-server-thread #(.getChunk level 0 0))
         snap (on-server-thread #(world/spawn! level :minecraft/pig [0 101 0]))]
     (is (= :minecraft/pig (:type snap)) "spawn! returns the entity as data")
     (is (some? (entity/obj snap)) "the live entity rides in the snapshot meta")
     ;; spawn at a BlockPos centres the entity on the block (x/z + 0.5).
     (is (= [0.5 101.0 0.5] (mapv double (:pos snap))) "snapshot carries the spawn position")
-    (is (contains? (set (map :type (on-server-thread #(world/entities level))))
+    (is (contains? (eventually #(contains? % :minecraft/pig)
+                               #(set (map :type (world/entities level))))
                    :minecraft/pig)
-        "the spawned pig shows up in a world entity query")))
+        "the spawned pig shows up in a world entity query once the tick adds it")))
 
 ;;; ItemStack <-> data. On a live server the item data-components are bound
 ;;; (they are not in a bare headless bootstrap), so the full round trip —

@@ -11,6 +11,12 @@
 				"adapter": "clojure",
 				"value": "skein-example.core/init"
 			}
+		],
+		"client": [
+			{
+				"adapter": "clojure",
+				"value": "skein-example.client/init"
+			}
 		]
 	},
 	"depends": {
