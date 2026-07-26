@@ -15,6 +15,7 @@
             [skein.command :as command]
             [skein.world :as world]
             [skein.attach :as attach]
+            [skein.menu]
             [skein.net :as net]
             [skein.state :as state]
             [skein.text]
@@ -127,6 +128,25 @@
                            (when mine (str ", " mine "× by you"))
                            ".")]]]]))
 
+(defn stash-closed
+  "The /ruby chest menu was closed: report what the player left in it. The
+  container's contents arrive as data, so the handler stays a plain function."
+  [{:keys [contents]}]
+  (let [kept (remove nil? contents)]
+    (println "[skein-example] ruby stash closed with" (count kept) "stack(s)")))
+
+(defn open-stash
+  "The /ruby chest handler: open a small chest seeded with a ruby. The menu is
+  described as data and opened through the :open-chest effect; the player sees a
+  normal chest GUI whose slots sync themselves."
+  [{:keys [source]}]
+  (if-some [player (.getPlayer ^CommandSourceStack source)]
+    [[:open-chest player {:title [:gold "Ruby Stash"]
+                          :rows 3
+                          :items {13 {:item ruby-item :count 1}}
+                          :on-close #'stash-closed}]]
+    [[:reply [:red "Only a player can open the ruby stash."]]]))
+
 (defn init
   "The Fabric `main` entrypoint (see fabric.mod.json). Content is declared at
   the top level (above); here we wire the logic — pure event handlers and a
@@ -149,7 +169,8 @@
   ;; A command tree as data: /ruby give and /ruby about.
   (command/def! :ruby
     {:subs {:give  {:run #'give-ruby}
-            :about {:run #'about-ruby}}})
+            :about {:run #'about-ruby}
+            :chest {:run #'open-stash}}})
 
   (reset! initialized? true)
   (println "[skein-example] Hello from Clojure!"))

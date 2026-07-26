@@ -14,6 +14,7 @@
             [skein.world :as world]
             [skein.entity :as entity]
             [skein.item :as item]
+            [skein.menu :as menu]
             [skein.command :as command])
   (:import (java.util.function Supplier)
            (net.minecraft.server MinecraftServer)))
@@ -99,6 +100,21 @@
   (testing "a bare id is a single item"
     (is (= {:item :minecraft/diamond :count 1}
            (on-server-thread #(item/stack-> (item/->stack :minecraft/diamond)))))))
+
+;;; A menu's backing container, built from data and read back. Opening the menu
+;;; for a player needs a connected client, so that path stays in-game; the
+;;; container itself — the slots the client would sync against — round-trips
+;;; here, where item components are bound.
+
+(deftest menu-container-prefills-and-reads-back-as-data
+  (let [read (on-server-thread
+              #(menu/contents (menu/container {:rows 3
+                                               :items {13 :minecraft/diamond
+                                                       0 {:item :minecraft/emerald :count 5}}})))]
+    (is (= 27 (count read)) "three rows of nine slots")
+    (is (= {:item :minecraft/diamond :count 1} (nth read 13)))
+    (is (= {:item :minecraft/emerald :count 5} (nth read 0)))
+    (is (nil? (nth read 1)) "an untouched slot reads back empty")))
 
 ;;; The command-as-data declaration (skein.command/def! :ruby, from the mod
 ;;; entrypoint) is live in the real dispatcher: parsing and running "ruby

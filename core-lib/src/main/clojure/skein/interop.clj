@@ -28,6 +28,19 @@
   []
   (= EnvType/CLIENT (.getEnvironmentType (FabricLoader/getInstance))))
 
+(defn ensure-client!
+  "Guards a client-only call: throws an actionable error when this JVM runs a
+  dedicated server, which ships no client classes. `what` names the thing being
+  attempted (a keybinding, a HUD overlay, ...). Client-side surfaces
+  (skein.client.*) call this before touching a client class so the failure reads
+  as \"move it to the client entrypoint\" rather than a NoClassDefFoundError."
+  [what]
+  (when-not (client-env?)
+    (throw (ex-info (str what " is client-side, and this JVM runs a dedicated server."
+                         " Register it from the mod's client entrypoint (fabric.mod.json"
+                         " \"client\": [...]) — client surfaces only exist there.")
+                    {:side :server}))))
+
 (defn game
   "The game instance: MinecraftClient on the client, MinecraftServer on a
   dedicated server. Throws until the game exists (early init phases)."
